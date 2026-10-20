@@ -190,3 +190,10 @@ Phase 2 notes (decided while building):
 - The QA re-tag uses 5% of the reviews tagged in a run, with a minimum of 20 (5% of a 300-review title would be 15).
 - Steam review markup ([b], [h1], [list]) is removed into a `display_text` field; quotes are matched and highlighted against it.
 - Sonnet 5.5 direct calls opt into Anthropic's server-side refusal fallback; Haiku 5.5 has none, so a declined or missing review gets one more try on its own and otherwise stays pending for the next run.
+
+Phase 2 live results on Duck Paradox (331 reviews, 284 with text, 47 with almost none):
+
+- Theme discovery proposed 15 themes on the second try, after the discovery prompt was tightened (the first try gave 5). Codebook v2 was approved as proposed.
+- First analysis run: $0.10. Spot check of 20 random reviews: 15 right, 5 off, all 5 general praise ("very nice", "amazing game") with no positive tag.
+- Second run after adding the overall impression: $0.12 (tagging $0.02, QA $0.04, summary $0.05). All 5 disagreements now carry a positive overall impression quoting the words the reviewer used. QA on a new random 20: theme agreement 96%, kappa 0.73, sentiment agreement 64%, overall impression agreement 90%. 628 of 633 quotes verified.
+- Total spent on Duck Paradox, both discovery attempts and both runs: $0.43.
