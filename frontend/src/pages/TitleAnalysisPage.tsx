@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import { api } from "../api/client";
+import { AutoAnalysisCard } from "../components/analysis/AutoAnalysisCard";
 import { CodebookPanel } from "../components/analysis/CodebookPanel";
 import { RunPanel } from "../components/analysis/RunPanel";
 import { SpotCheck } from "../components/analysis/SpotCheck";
@@ -41,6 +42,7 @@ export function TitleAnalysisPage() {
   return (
     <div>
       <RunPanel overview={data} />
+      <AutoAnalysisCard titleId={titleId} hasApprovedCodebook={!!approved} />
 
       {workingCodebook ? (
         <CodebookPanel titleId={titleId} codebookId={workingCodebook.id} approvedId={approved?.id ?? null} />

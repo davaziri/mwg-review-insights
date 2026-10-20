@@ -89,6 +89,8 @@ def run_out(run: AnalysisRun) -> dict:
         "step": run.step,
         "mode": run.mode,
         "trigger": run.trigger,
+        "requested_by": run.requested_by,
+        "confirmed_by": run.confirmed_by,
         "estimate": run.estimate,
         "est_input_tokens": run.est_input_tokens,
         "est_output_tokens": run.est_output_tokens,

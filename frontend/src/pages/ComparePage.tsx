@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
+import { AdminOnly } from "../auth";
 import type { CompareTheme, CompareTitle, Comparison } from "../api/types";
 import { SentimentBar } from "../components/analysis/ThemesTable";
 import { ChartOwner } from "../components/charts/ChartFrame";
@@ -197,7 +198,14 @@ function Themes({ data, colorOf, onMatched }: { data: Comparison; colorOf: (id: 
 
   if (tm.status === "not_matched" || !tm.match) {
     return (
-      <Card title="Shared themes" actions={<MatchButton titleIds={analyzed.map((t) => t.id)} onDone={onMatched} />}>
+      <Card
+        title="Shared themes"
+        actions={
+          <AdminOnly otherwise={<span className="text-xs text-muted">An admin can match the themes</span>}>
+            <MatchButton titleIds={analyzed.map((t) => t.id)} onDone={onMatched} />
+          </AdminOnly>
+        }
+      >
         <p className="mb-4 text-sm text-ink-2">
           These themes haven't been matched across games yet. Until then, here are each game's most mentioned themes side by side.
         </p>

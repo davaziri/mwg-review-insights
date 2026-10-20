@@ -34,6 +34,14 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     engine = create_db_engine(_url())
     with engine.connect() as connection:
+        sqlite = connection.dialect.name == "sqlite"
+        if sqlite:
+            # SQLite batch migrations rebuild a table by copying it and dropping the original.
+            # With foreign keys enforced, that drop would cascade and delete every child row
+            # (reviews of a title, mentions of a tag), so enforcement is off while migrating and
+            # checked afterwards instead.
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.commit()  # so the migrations below run in, and commit, their own transaction
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
@@ -43,6 +51,12 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+        if sqlite:
+            broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+            if broken:
+                raise RuntimeError(f"Migration left {len(broken)} rows pointing at missing rows: {broken[:5]}")
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
     engine.dispose()
 
 

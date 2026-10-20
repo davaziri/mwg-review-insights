@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../api/client";
 import type { SyncRunWithTitle } from "../api/types";
-import { Badge } from "../components/ui";
+import { Badge } from "./ui";
 import { dateTime, number } from "../lib/format";
 
 const STATUS_TONE = { queued: "slate", running: "blue", succeeded: "green", failed: "red" } as const;
 
-export function SyncLogPage() {
+/** Every review sync, newest first. */
+export function SyncRunsSection() {
   const runs = useQuery({
     queryKey: ["sync-runs"],
     queryFn: () => api.syncRuns(200),
@@ -16,8 +17,7 @@ export function SyncLogPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">Sync log</h1>
-      <p className="mb-5 text-sm text-muted">
+      <p className="mb-4 text-sm text-muted">
         Every review sync, newest first. Nightly syncs run automatically; full crawls run weekly and check for deleted reviews.
       </p>
 

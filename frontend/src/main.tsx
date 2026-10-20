@@ -4,12 +4,14 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 
 import "./index.css";
+import { AuthGate } from "./auth";
 import { Layout } from "./components/Layout";
 import { TitleShell } from "./components/TitleShell";
 import { ComparePage } from "./pages/ComparePage";
 import { PortfolioPage } from "./pages/PortfolioPage";
 import { QualityPage } from "./pages/QualityPage";
-import { SyncLogPage } from "./pages/SyncLogPage";
+import { PeoplePage } from "./pages/PeoplePage";
+import { RunLogPage } from "./pages/RunLogPage";
 import { ThemePage } from "./pages/ThemePage";
 import { TitleAnalysisPage } from "./pages/TitleAnalysisPage";
 import { TitleOverviewPage } from "./pages/TitleOverviewPage";
@@ -41,7 +43,9 @@ const router = createBrowserRouter([
           { path: "analysis", element: <TitleAnalysisPage /> },
         ],
       },
-      { path: "/sync-log", element: <SyncLogPage /> },
+      { path: "/runs", element: <RunLogPage /> },
+      { path: "/sync-log", element: <Navigate to="/runs" replace /> },
+      { path: "/people", element: <PeoplePage /> },
       { path: "/quality", element: <QualityPage /> },
       { path: "*", element: <Navigate to="/" replace /> },
     ],
@@ -52,7 +56,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ModeProvider>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <AuthGate>
+          <RouterProvider router={router} />
+        </AuthGate>
       </QueryClientProvider>
     </ModeProvider>
   </StrictMode>,

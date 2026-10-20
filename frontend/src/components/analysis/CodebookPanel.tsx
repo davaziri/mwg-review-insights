@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { api } from "../../api/client";
+import { useAuth } from "../../auth";
 import type { Codebook, Theme, ThemeDraft } from "../../api/types";
 import { dateTime } from "../../lib/format";
 import { Badge, Button, Card, inputClass } from "../ui";
@@ -24,6 +25,7 @@ const toWorking = (t: Theme): Working => ({
 });
 
 export function CodebookPanel({ titleId, codebookId, approvedId }: { titleId: number; codebookId: number; approvedId: number | null }) {
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const codebook = useQuery({ queryKey: ["codebook", codebookId], queryFn: () => api.codebook(codebookId) });
   const [editing, setEditing] = useState<Working[] | null>(null);
@@ -45,7 +47,8 @@ export function CodebookPanel({ titleId, codebookId, approvedId }: { titleId: nu
         </span>
       }
       actions={
-        !editing && (
+        !editing &&
+        isAdmin && (
           <>
             <Button onClick={() => setEditing((cb.themes ?? []).map(toWorking))}>Edit themes</Button>
             {cb.status === "draft" && (

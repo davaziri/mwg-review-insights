@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { api } from "../../api/client";
+import { AdminOnly } from "../../auth";
 import type { AnalysisOverview, AnalysisRun } from "../../api/types";
 import { dateTime, money, timeAgo } from "../../lib/format";
 import { Badge, Button, Card } from "../ui";
@@ -51,7 +52,7 @@ export function RunPanel({ overview }: { overview: AnalysisOverview }) {
     <Card
       title="Analysis"
       actions={
-        <>
+        <AdminOnly otherwise={<span className="text-xs text-muted">Admins can run analyses</span>}>
           <Button
             disabled={!!active || !enoughReviews || estimateMut.isPending}
             onClick={() => estimateMut.mutate("discovery")}
@@ -67,7 +68,7 @@ export function RunPanel({ overview }: { overview: AnalysisOverview }) {
           >
             Analyze reviews
           </Button>
-        </>
+        </AdminOnly>
       }
     >
       <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">

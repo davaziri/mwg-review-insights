@@ -42,8 +42,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id', name=op.f('pk_alerts')),
     sa.UniqueConstraint('dedupe_key', name=op.f('uq_alerts_dedupe_key'))
     )
-    with op.batch_alter_table('titles', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('auto_analyze', sa.Boolean(), server_default=sa.false(), nullable=False))
+    # A plain ADD COLUMN: titles has many child tables, so it is never rebuilt in place.
+    op.add_column('titles', sa.Column('auto_analyze', sa.Boolean(), server_default=sa.false(), nullable=False))
 
 
 def downgrade() -> None:

@@ -1,4 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router";
+
+import { api } from "../api/client";
+import { useAuth } from "../auth";
 
 import { brand } from "../theme/brand";
 import { useMode, type Preference } from "../theme/mode";
@@ -36,7 +41,55 @@ function ModeSwitch() {
   );
 }
 
+function UserMenu() {
+  const { me, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const user = me.user!;
+  if (me.mode === "local") {
+    return (
+      <span className="shrink-0 rounded-md border border-line px-2 py-1 text-xs text-muted" title="AUTH_MODE=local: anyone who can open the app is an admin. Only for your own computer.">
+        Sign-in off
+      </span>
+    );
+  }
+  const signOut = async () => {
+    await api.signOut();
+    queryClient.clear();
+    window.location.assign("/");
+  };
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-soft">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-xs font-semibold text-on-brand" aria-hidden>
+          {(user.name || user.email)[0].toUpperCase()}
+        </span>
+        <span className="hidden max-w-32 truncate sm:inline">{user.name || user.email}</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-1 w-60 rounded-md border border-line bg-surface p-1 text-sm shadow-lg">
+          <div className="px-2 py-1.5">
+            <div className="truncate font-medium">{user.email}</div>
+            <div className="text-xs text-muted">{isAdmin ? "Admin: can sync, edit themes and run analyses" : "Viewer: can browse and export"}</div>
+          </div>
+          <button type="button" onClick={signOut} className="block w-full rounded px-2 py-1.5 text-left hover:bg-subtle">
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Layout() {
+  const { isAdmin } = useAuth();
   return (
     <div className="min-h-screen">
       <header className="border-b border-line bg-surface">
@@ -48,8 +101,9 @@ export function Layout() {
               <div className="text-xs text-muted">{brand.companyName}</div>
             </div>
           </NavLink>
-          <div className="ml-auto sm:order-last">
+          <div className="ml-auto flex items-center gap-2 sm:order-last">
             <ModeSwitch />
+            <UserMenu />
           </div>
           <nav className="-mx-1 flex w-full gap-1 overflow-x-auto px-1 sm:w-auto" aria-label="Main">
             <NavLink to="/" end className={navClass}>
@@ -61,12 +115,17 @@ export function Layout() {
             <NavLink to="/titles" end className={navClass}>
               Manage titles
             </NavLink>
-            <NavLink to="/sync-log" className={navClass}>
-              Sync log
+            <NavLink to="/runs" className={navClass}>
+              Run log
             </NavLink>
             <NavLink to="/quality" className={navClass}>
               Analysis quality
             </NavLink>
+            {isAdmin && (
+              <NavLink to="/people" className={navClass}>
+                People
+              </NavLink>
+            )}
           </nav>
         </div>
       </header>

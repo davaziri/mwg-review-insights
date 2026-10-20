@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { api } from "../api/client";
+import { AdminOnly } from "../auth";
 import type { AppStats, Title } from "../api/types";
 import { STATUS_LABELS } from "../api/types";
 import { TitleFormDialog } from "../components/TitleFormDialog";
@@ -47,10 +48,12 @@ export function TitlesPage() {
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
           Show archived
         </label>
-        <Button onClick={() => act(api.syncAll)}>Sync all</Button>
-        <Button variant="primary" onClick={() => setEditing("new")}>
-          Add title
-        </Button>
+        <AdminOnly>
+          <Button onClick={() => act(api.syncAll)}>Sync all</Button>
+          <Button variant="primary" onClick={() => setEditing("new")}>
+            Add title
+          </Button>
+        </AdminOnly>
       </div>
 
       {error && (
@@ -132,30 +135,32 @@ function TitleRow({ title, act, onEdit }: { title: Title; act: (fn: () => Promis
         <Link to={`/titles/${title.id}`} className="rounded-md px-2 py-1.5 text-sm font-medium text-link hover:bg-soft">
           Open
         </Link>
-        <Button variant="primary" disabled={busy || archived} onClick={() => act(() => api.syncTitle(title.id))}>
-          {running ? "Syncing" : busy ? "Queued" : "Sync now"}
-        </Button>
-        <MoreMenu
-          items={[
-            !archived && { label: "Full re-sync", disabled: busy, onClick: () => act(() => api.syncTitle(title.id, "full")) },
-            { label: "Edit", onClick: onEdit },
-            archived
-              ? { label: "Unarchive", onClick: () => act(() => api.unarchiveTitle(title.id)) }
-              : { label: "Archive", onClick: () => act(() => api.archiveTitle(title.id)) },
-            {
-              label: "Remove",
-              danger: true,
-              onClick: () => {
-                if (
-                  window.confirm(
-                    `Remove ${title.name} and every review stored for it? This can't be undone. Archive instead to keep the history.`,
+        <AdminOnly>
+          <Button variant="primary" disabled={busy || archived} onClick={() => act(() => api.syncTitle(title.id))}>
+            {running ? "Syncing" : busy ? "Queued" : "Sync now"}
+          </Button>
+          <MoreMenu
+            items={[
+              !archived && { label: "Full re-sync", disabled: busy, onClick: () => act(() => api.syncTitle(title.id, "full")) },
+              { label: "Edit", onClick: onEdit },
+              archived
+                ? { label: "Unarchive", onClick: () => act(() => api.unarchiveTitle(title.id)) }
+                : { label: "Archive", onClick: () => act(() => api.archiveTitle(title.id)) },
+              {
+                label: "Remove",
+                danger: true,
+                onClick: () => {
+                  if (
+                    window.confirm(
+                      `Remove ${title.name} and every review stored for it? This can't be undone. Archive instead to keep the history.`,
+                    )
                   )
-                )
-                  act(() => api.deleteTitle(title.id));
+                    act(() => api.deleteTitle(title.id));
+                },
               },
-            },
-          ]}
-        />
+            ]}
+          />
+        </AdminOnly>
       </div>
     </div>
   );

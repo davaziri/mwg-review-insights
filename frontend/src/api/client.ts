@@ -1,10 +1,14 @@
 import { filterQuery, qs, type PageFilters } from "../lib/filters";
 import type {
+  AlertRow,
   AnalysisOverview,
   AnalysisRun,
   Codebook,
   Comparison,
+  AutoAnalysis,
   Facets,
+  Me,
+  Person,
   PortfolioCard,
   Quality,
   ReviewList,
@@ -30,11 +34,20 @@ export class ApiError extends Error {
   }
 }
 
+let onSignedOut: () => void = () => {};
+
+/** Called when the server says the session is gone (expired, signed out elsewhere, or turned off). */
+export function setSignedOutHandler(handler: () => void): void {
+  onSignedOut = handler;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    // The server refuses changes without this header, so other websites can't make them.
+    headers: { "Content-Type": "application/json", "X-Requested-With": "mwg", ...init?.headers },
   });
+  if (resp.status === 401 && !path.startsWith("/api/auth/")) onSignedOut();
   if (!resp.ok) {
     let message = `Request failed (${resp.status})`;
     try {
@@ -52,6 +65,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const json = (body: unknown) => JSON.stringify(body);
 
 export const api = {
+  me: () => request<Me>("/api/auth/me"),
+  signOut: () => request<void>("/api/auth/logout", { method: "POST" }),
+  people: () => request<Person[]>("/api/users"),
+  updatePerson: (id: number, body: Partial<Pick<Person, "role" | "active">>) =>
+    request<Person>(`/api/users/${id}`, { method: "PATCH", body: json(body) }),
+  autoAnalysis: (titleId: number) => request<AutoAnalysis>(`/api/titles/${titleId}/auto-analysis`),
+  analysisRuns: (limit = 100) => request<AnalysisRun[]>(`/api/analysis-runs?limit=${limit}`),
+  alerts: () => request<{ channels: { slack: boolean; email: boolean }; alerts: AlertRow[] }>("/api/alerts"),
+  testAlert: () => request<AlertRow>("/api/alerts/test", { method: "POST" }),
   title: (id: number) => request<Title>(`/api/titles/${id}`),
   listTitles: (includeArchived: boolean) =>
     request<Title[]>(`/api/titles?include_archived=${includeArchived}`),

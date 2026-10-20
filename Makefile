@@ -29,8 +29,12 @@ frontend/node_modules/.installed: frontend/package.json frontend/package-lock.js
 migrate: install
 	cd backend && $(BIN)/python -m app.cli init-db
 
+# Sign-in is off for `make dev` unless AUTH_MODE is set (in the shell or .env). The Docker image
+# always defaults to Google sign-in, so a server is never open by accident.
+DEV_AUTH_MODE := $(or $(AUTH_MODE),$(shell sed -n 's/^AUTH_MODE=//p' .env 2>/dev/null),local)
+
 dev-api:
-	cd backend && $(BIN)/uvicorn app.main:app --reload --port 8000
+	cd backend && AUTH_MODE=$(DEV_AUTH_MODE) $(BIN)/uvicorn app.main:app --reload --port 8000
 
 dev-worker:
 	cd backend && $(BIN)/python -m app.cli worker

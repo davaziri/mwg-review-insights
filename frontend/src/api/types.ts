@@ -63,6 +63,7 @@ export interface Title {
   publishers: string[] | null;
   appdetails_fetched_at: string | null;
   created_at: string;
+  auto_analyze: boolean;
   last_synced_at: string | null;
   apps: AppStats[];
 }
@@ -75,7 +76,7 @@ export interface TitleCreate {
   notes?: string | null;
 }
 
-export type TitleUpdate = Partial<Pick<Title, "name" | "status" | "demo_app_id" | "notes">>;
+export type TitleUpdate = Partial<Pick<Title, "name" | "status" | "demo_app_id" | "notes" | "auto_analyze">>;
 
 export const STATUS_LABELS: Record<TitleStatus, string> = {
   released: "Released",
@@ -179,6 +180,9 @@ export interface AnalysisRun {
   status: "estimated" | "queued" | "running" | "succeeded" | "failed" | "canceled";
   step: string | null;
   mode: "direct" | "batch";
+  trigger: "manual" | "nightly";
+  requested_by: string | null;
+  confirmed_by: string | null;
   estimate: { steps: EstimateStep[]; notes: string[]; prompt_version: string } | null;
   est_input_tokens: number;
   est_output_tokens: number;
@@ -461,4 +465,46 @@ export interface ThemeDraft {
   exclude_notes: string;
   example_review_ids: string[];
   derived_from: { key?: string; op: string }[];
+}
+
+// Sign-in, people, nightly analysis, alerts
+
+export interface Me {
+  mode: "google" | "local";
+  user: { id: number | null; email: string; name: string | null; role: "admin" | "viewer" } | null;
+  /** Why sign-in can't work yet (missing settings), for whoever set the app up. */
+  problem: string | null;
+}
+
+export interface Person {
+  id: number;
+  email: string;
+  name: string | null;
+  role: "admin" | "viewer";
+  active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface AutoAnalysis {
+  enabled: boolean;
+  nightly_limit_usd: number;
+  reviews_last_30_days: number;
+  nights_with_reviews: number;
+  per_review_usd: number;
+  summary_usd: number;
+  summaries_per_month: number;
+  expected_monthly_usd: number;
+}
+
+export interface AlertRow {
+  id: number;
+  kind: "sync_failed" | "analysis_failed" | "needs_confirmation" | "positive_drop" | "test";
+  title_id: number | null;
+  title_name: string | null;
+  subject: string;
+  body: string;
+  channels: string[];
+  error: string | null;
+  created_at: string;
 }
