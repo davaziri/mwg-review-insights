@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import analysis, reviews, sync, titles
+from app.api import analysis, portfolio, reviews, sync, titles
 from app.config import REPO_ROOT, get_settings
 
 
@@ -14,6 +14,7 @@ def create_app() -> FastAPI:
     app.include_router(sync.router)
     app.include_router(analysis.router)
     app.include_router(reviews.router)
+    app.include_router(portfolio.router)
 
     @app.get("/api/health", tags=["meta"])
     def health():

@@ -7,7 +7,7 @@ from functools import cache
 from pathlib import Path
 from string import Template
 
-PROMPT_VERSION = "2026-10-20.3"
+PROMPT_VERSION = "2026-10-20.4"
 _DIR = Path(__file__).parent
 
 
@@ -88,3 +88,9 @@ def summary_schema(theme_keys: list[str]) -> dict:
             "last_30_days": _obj({"text": _STR, "review_ids": {"type": "array", "items": _STR}}),
         }
     )
+
+
+def theme_match_schema(labels: list[str], theme_keys: list[str]) -> dict:
+    member = _obj({"game": {"type": "string", "enum": labels}, "theme_key": {"type": "string", "enum": sorted(set(theme_keys))}})
+    group = _obj({"name": _STR, "themes": {"type": "array", "items": member}})
+    return _obj({"groups": {"type": "array", "items": group}})

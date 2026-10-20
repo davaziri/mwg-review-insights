@@ -3,12 +3,13 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, null, select
+from sqlalchemy import case, func, null, select
 from sqlalchemy.orm import Session
 
 from app.analysis.aggregate import Filters, current_tag_join, review_filter_clauses
 from app.analysis.codebooks import approved_codebook, themes_for
-from app.api.common import filters_dep, resolve_app, serialize_reviews, title_or_404
+from app.analysis.prep import PLAYTIME_BAND_LABELS, PLAYTIME_BANDS
+from app.api.common import date_str, filters_dep, resolve_app, serialize_reviews, title_or_404
 from app.db import get_session
 from app.models import Review, ReviewTag, ThemeMention
 from app.search import match_spans, parse_terms, search_clauses
@@ -82,4 +83,38 @@ def list_reviews(
         "terms": terms,
         "reviews": out,
         "codebook": {"id": cb.id, "version": cb.version} if cb else None,
+    }
+
+
+@router.get("/titles/{title_id}/facets")
+def facets(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
+    """What the filter bar can offer for one app: its languages, date range and playtime bands,
+    with review counts (unfiltered)."""
+    title = title_or_404(session, title_id)
+    app = resolve_app(title, app_id)
+    scope = [Review.title_id == title.id, Review.app_id == app, Review.deleted_at.is_(None)]
+    total, first, last, early, deck, dev = session.execute(
+        select(
+            func.count(),
+            func.min(Review.timestamp_created),
+            func.max(Review.timestamp_created),
+            func.sum(case((Review.written_during_early_access.is_(True), 1), else_=0)),
+            func.sum(case((Review.primarily_steam_deck.is_(True), 1), else_=0)),
+            func.sum(case((Review.developer_response.is_not(None), 1), else_=0)),
+        ).where(*scope)
+    ).one()
+    languages = session.execute(
+        select(Review.language, func.count()).where(*scope).group_by(Review.language).order_by(func.count().desc())
+    ).all()
+    bands = dict(session.execute(select(Review.playtime_band, func.count()).where(*scope).group_by(Review.playtime_band)).all())
+    return {
+        "app_id": app,
+        "total": total,
+        "date_min": date_str(first),
+        "date_max": date_str(last),
+        "languages": [{"code": code or "unknown", "count": n} for code, n in languages],
+        "playtime_bands": [{"band": b, "label": PLAYTIME_BAND_LABELS[b], "count": bands.get(b, 0)} for b in PLAYTIME_BANDS],
+        "early_access": early or 0,
+        "steam_deck": deck or 0,
+        "developer_response": dev or 0,
     }

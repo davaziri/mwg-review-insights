@@ -5,6 +5,7 @@ from app.models.analysis import (
     ReviewTag,
     Summary,
     Theme,
+    ThemeMatch,
     ThemeMention,
 )
 from app.models.base import Base
@@ -23,6 +24,7 @@ __all__ = [
     "Summary",
     "SyncRun",
     "Theme",
+    "ThemeMatch",
     "ThemeMention",
     "Title",
 ]

@@ -74,6 +74,8 @@ class FakeLLM:
         props = request.schema["properties"]
         if "themes" in props:
             out = self._discovery(request)
+        elif "groups" in props:
+            out = self._theme_match(request)
         elif "strengths" in props:
             out = self._summary(request)
         else:
@@ -141,6 +143,25 @@ class FakeLLM:
         else:
             return {"sentiment": "none", "quote": ""}
         return {"sentiment": sentiment, "quote": "a really good game overall" if paraphrase else quote.strip()}
+
+    def _theme_match(self, request: LLMRequest) -> dict:
+        """Groups themes whose names share a word, one theme per game, plus some bad entries the
+        app must drop: an unknown key, a one-game group and a theme used twice."""
+        games = json.loads(request.user.split("(JSON):\n", 1)[1].rsplit("\n\nGroup", 1)[0])
+        groups: dict[str, list[dict]] = {}
+        for game in games:
+            for t in game["themes"]:
+                word = t["name"].split()[0].lower()
+                members = groups.setdefault(word, [])
+                if all(m["game"] != game["game"] for m in members):
+                    members.append({"game": game["game"], "theme_key": t["key"]})
+        out = [{"name": f"{w.title()} — shared", "themes": m} for w, m in groups.items()]
+        first = games[0]
+        out.append({"name": "Bad key", "themes": [{"game": first["game"], "theme_key": "no_such_theme"}, {"game": games[1]["game"], "theme_key": "no_such_theme"}]})
+        out.append({"name": "One game", "themes": [{"game": first["game"], "theme_key": first["themes"][-1]["key"]}]})
+        if out and out[0]["themes"]:
+            out.append({"name": "Reused", "themes": out[0]["themes"]})
+        return {"groups": out}
 
     def _summary(self, request: LLMRequest) -> dict:
         excerpts = json.loads(request.user.split("Review excerpts (JSON, verbatim):\n", 1)[1].rsplit("\n\nWrite the summary.", 1)[0])

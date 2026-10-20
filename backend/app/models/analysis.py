@@ -205,3 +205,28 @@ class Summary(Base):
     # {"strengths": [...], "problems": [...], "last_30_days": {...}}; every item cites review IDs.
     content: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ThemeMatch(Base):
+    """Which themes mean the same thing across games, for the compare view.
+
+    Made by the analysis model for one set of approved codebooks (one per title) and reused
+    until any of those titles approves a new codebook.
+    """
+
+    __tablename__ = "theme_matches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Sorted codebook ids joined with commas: the set of codebooks this match covers.
+    codebook_key: Mapped[str] = mapped_column(String(200), unique=True)
+    codebook_ids: Mapped[list] = mapped_column(JSON)
+    model: Mapped[str] = mapped_column(String(100))
+    prompt_version: Mapped[str] = mapped_column(String(40))
+    # [{"name": ..., "members": [{"codebook_id": ..., "theme_key": ...}]}]
+    groups: Mapped[list] = mapped_column(JSON)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    est_cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    requested_by: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
