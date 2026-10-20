@@ -197,3 +197,4 @@ Phase 2 live results on Duck Paradox (331 reviews, 284 with text, 47 with almost
 - First analysis run: $0.10. Spot check of 20 random reviews: 15 right, 5 off, all 5 general praise ("very nice", "amazing game") with no positive tag.
 - Second run after adding the overall impression: $0.12 (tagging $0.02, QA $0.04, summary $0.05). All 5 disagreements now carry a positive overall impression quoting the words the reviewer used. QA on a new random 20: theme agreement 96%, kappa 0.73, sentiment agreement 64%, overall impression agreement 90%. 628 of 633 quotes verified.
 - Total spent on Duck Paradox, both discovery attempts and both runs: $0.43.
+- Spot check round 2, same 20 reviews: 20 of 20 right.
