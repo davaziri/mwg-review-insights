@@ -11,7 +11,7 @@ An internal web app that pulls every Steam review for each Midwest Games title, 
 | 2. Analysis pipeline | Done; verified on Duck Paradox (spot check: 20 of 20 right) and Tombwater |
 | 3. App UI | Done |
 | 4. Exports | Done |
-| 5. Access, scheduling, handoff | Built; waiting for review |
+| 5. Access, scheduling, handoff | Done; Google sign-in, Slack and email to be checked on first setup |
 
 **Contents:** [Run it on your computer](#run-it-on-your-computer) · [Run it with Docker](#run-it-with-docker) · [Using the app](#using-the-app) · [Adding a title](#adding-a-title) · [Editing a codebook](#editing-a-codebook) · [How syncing works](#how-syncing-works) · [How analysis works](#how-analysis-works) · [Nightly analysis and alerts](#nightly-analysis-and-alerts) · [Exports](#exports) · [Sign-in and roles](#sign-in-and-roles) · [Cost expectations](#cost-expectations) · [Deploy on a small cloud server](#deploy-on-a-small-cloud-server) · [Settings](#settings) · [Branding](#branding) · [Tests](#tests)
 
