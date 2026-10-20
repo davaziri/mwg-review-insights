@@ -1,0 +1,144 @@
+{
+  "request_cursor": "AoJwwbTXop0De8PQzwY=",
+  "body": {
+    "response": {
+      "query_summary": {
+        "num_reviews": 5
+      },
+      "reviews": [
+        {
+          "recommendationid": "222195838",
+          "author": {
+            "steamid": "76561198006611065",
+            "num_reviews": 60,
+            "playtime_forever": 68,
+            "playtime_last_two_weeks": 0,
+            "playtime_at_review": 28,
+            "deck_playtime_at_review": 28,
+            "last_played": 1774983435
+          },
+          "language": "russian",
+          "review": "Итак, давайте поговорим:\n\nПлюсы:\n\n1. Это хардкорно\n2. Это атмосферно \n3. Клевая музыка\n\nМинусы, скорее недочеты:\n\n1. Странная идея повесить атаку на R на геймпаде (можно изменить)\n2. Враги почему-то не умеют спускаться по лестницам\n3. Немного топорное управление персонажем в битве, что не дает простора для тактики\n4. Стоимость великовата - 400-500 рублей было бы самое то.",
+          "timestamp_created": 1774980896,
+          "timestamp_updated": 1774980896,
+          "voted_up": true,
+          "votes_up": 1,
+          "votes_funny": 1,
+          "weighted_vote_score": 0.523809552192688,
+          "comment_count": 0,
+          "steam_purchase": true,
+          "received_for_free": false,
+          "written_during_early_access": false,
+          "primarily_steam_deck": true,
+          "refunded": false
+        },
+        {
+          "recommendationid": "222192978",
+          "author": {
+            "steamid": "76561198008853193",
+            "num_reviews": 8,
+            "playtime_forever": 257,
+            "playtime_last_two_weeks": 0,
+            "playtime_at_review": 257,
+            "deck_playtime_at_review": 257,
+            "last_played": 1774797388
+          },
+          "language": "english",
+          "review": "Tombwater is one of those games that immediately stood out to me, and after spending time with it, it absolutely delivers.\r\n\r\nAt its core, this is a 2D Soulslike set in a dark, twisted version of the Old West, blending methodical combat with exploration that feels very reminiscent of classic Zelda-style design. The game actually started out as a 2D demake of Bloodborne (that's a positive thing), and you can definitely feel that influence in the combat, tone, and overall design philosophy.\r\n\r\nCombat feels tight and responsive, whether you’re using melee weapons or firearms, and the class system adds a nice layer of flexibility depending on how you want to approach the game. I went with the Drifter class, which felt great thanks to its balanced playstyle and mobility, but honestly, all of the classes seem like they bring something unique to the table.\r\n\r\nThere’s a strong sense of risk and reward, especially with the campfire system and recovering your resources after death.\r\n\r\nThe atmosphere is one of the game’s biggest strengths. The pixel art, world design, and especially the music all come together to create a really immersive experience. The Eldritch horror elements layered into the Western setting give it a distinct tone that sets it apart from other games in the genre.\r\n\r\nThere’s also a solid amount of content here, with a non-linear map, multiple biomes to explore, and plenty of weapons, abilities, and builds to experiment with.\r\n\r\nIf you’re a fan of Soulslikes, Metroidvanias, or Zelda-style exploration, this is definitely worth checking out.\r\n\r\nI also have a full video review up on my YouTube channel (ThunderStash Gaming) if you want a deeper breakdown of the game.\r\n\r\nFor those wondering about performance — I played this on a SteamDeck OLED, and it ran great.",
+          "timestamp_created": 1774978377,
+          "timestamp_updated": 1774978377,
+          "voted_up": true,
+          "votes_up": 13,
+          "votes_funny": 0,
+          "weighted_vote_score": 0.6576605439186096,
+          "comment_count": 0,
+          "steam_purchase": false,
+          "received_for_free": false,
+          "written_during_early_access": false,
+          "primarily_steam_deck": true,
+          "refunded": false
+        },
+        {
+          "recommendationid": "222192130",
+          "author": {
+            "steamid": "76561198002122533",
+            "num_reviews": 2,
+            "playtime_forever": 1093,
+            "playtime_last_two_weeks": 0,
+            "playtime_at_review": 75,
+            "deck_playtime_at_review": 75,
+            "last_played": 1778020507
+          },
+          "language": "english",
+          "review": "Hello anyone reading, I’m about one hour into the game so far and already it’s lived up to my hype and expectations. The art style and graphics are great, the movement feels nice. The environments are gorgous.  But one of the main points is the combat, the combat is really smooth and feels good to use, using spells and sword attack interlocked with using the revolver absolute brilliance. But furthermore it’s punishing if you make a stupid mistake of going in for an extra hit you can (and will) be punished. So unless you really struggle with souls like games then 10/10 would recommend for the first hour alone.",
+          "timestamp_created": 1774977672,
+          "timestamp_updated": 1774977672,
+          "voted_up": true,
+          "votes_up": 19,
+          "votes_funny": 0,
+          "weighted_vote_score": 0.6550435423851013,
+          "comment_count": 0,
+          "steam_purchase": true,
+          "received_for_free": false,
+          "written_during_early_access": false,
+          "primarily_steam_deck": true,
+          "refunded": false
+        },
+        {
+          "recommendationid": "222192015",
+          "author": {
+            "steamid": "76561198002680799",
+            "num_reviews": 11,
+            "playtime_forever": 1631,
+            "playtime_last_two_weeks": 0,
+            "playtime_at_review": 49,
+            "deck_playtime_at_review": 49,
+            "last_played": 1777136788
+          },
+          "language": "english",
+          "review": "It's hard to put into words just how much fun this game is. That it's exquisitely crafted by folk who put all their skill and effort into making a superb game is the evident within minutes of starting the game. Having spent many fun hours in the demo, I couldn't wait to finally have the opportunity to buy the full game, and the wait is definitely worth it.\n\nDo yourself a favour and buy the game, support devs who actually care about making a great game, and get stuck in.",
+          "timestamp_created": 1774977583,
+          "timestamp_updated": 1774977583,
+          "voted_up": true,
+          "votes_up": 5,
+          "votes_funny": 0,
+          "weighted_vote_score": 0.4950338900089264,
+          "comment_count": 0,
+          "steam_purchase": true,
+          "received_for_free": false,
+          "written_during_early_access": false,
+          "primarily_steam_deck": true,
+          "refunded": false
+        },
+        {
+          "recommendationid": "222190005",
+          "author": {
+            "steamid": "76561198009888230",
+            "num_reviews": 18,
+            "playtime_forever": 719,
+            "playtime_last_two_weeks": 0,
+            "playtime_at_review": 718,
+            "deck_playtime_at_review": 370,
+            "last_played": 1774975885
+          },
+          "language": "english",
+          "review": "Amazing soulslike that feels great on PC and Steam Deck.",
+          "timestamp_created": 1774975856,
+          "timestamp_updated": 1774975856,
+          "voted_up": true,
+          "votes_up": 4,
+          "votes_funny": 1,
+          "weighted_vote_score": 0.54356849193573,
+          "comment_count": 0,
+          "steam_purchase": false,
+          "received_for_free": false,
+          "written_during_early_access": false,
+          "primarily_steam_deck": true,
+          "refunded": false
+        }
+      ],
+      "cursor": "AoJw2MWzop0DdZvLzwY=",
+      "total_matching": 305
+    }
+  }
+}

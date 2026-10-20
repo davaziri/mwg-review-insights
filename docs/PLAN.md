@@ -164,3 +164,12 @@ Enforced with structured outputs (`output_config.format`). `theme_id` is an enum
 - `weighted_vote_score` can arrive as a string or a number.
 - Steam can cache answers to keyless callers for several minutes.
 - The old `store.steampowered.com/appreviews` endpoint is disabled on 22 October 2026.
+
+Confirmed against live Steam on 2026-10-20:
+
+- `filter=2` is the Updated sort (newest `timestamp_updated` first); `filter=1` is Recent.
+- Responses carry `cursor`, `query_summary`, `reviews` and `total_matching` inside `response`.
+- Review and author field names match the old endpoint, except authors no longer include `num_games_owned`.
+- Stored counts matched Steam's `total_reviews` exactly for every title (Tombwater 305, Duck Paradox 331,
+  Hive Jump 2 114, Dark Sky 71, The Lullaby of Life 45, GodsTV demo 126, others 0).
+- A second sync ran incrementally: one request, nothing new or edited.

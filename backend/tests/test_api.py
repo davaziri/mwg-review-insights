@@ -1,28 +1,5 @@
-import pytest
-from fastapi.testclient import TestClient
-
-from app.db import get_session
-from app.main import create_app
-from app.seed import seed_titles
 from app.steam.sync import run_sync
 from tests.fakes import appdetails_data, make_reviews
-
-
-@pytest.fixture
-def api(session_factory, settings, monkeypatch):
-    # Route the app's settings and database at the test database.
-    monkeypatch.setattr("app.api.titles.get_settings", lambda: settings)
-    monkeypatch.setattr("app.api.sync.get_settings", lambda: settings)
-    app = create_app()
-
-    def _session():
-        with session_factory() as s:
-            yield s
-
-    app.dependency_overrides[get_session] = _session
-    with session_factory() as s:
-        seed_titles(s)
-    return TestClient(app)
 
 
 def test_lists_seed_titles_with_no_reviews(api, fake_steam):

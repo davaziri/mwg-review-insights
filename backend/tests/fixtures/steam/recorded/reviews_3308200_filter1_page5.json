@@ -1,0 +1,12 @@
+{
+  "request_cursor": "AoJw2MWzop0DdZvLzwY=",
+  "body": {
+    "response": {
+      "query_summary": {
+        "num_reviews": 0
+      },
+      "cursor": "AoJw2MWzop0DdZvLzwY=",
+      "total_matching": 305
+    }
+  }
+}

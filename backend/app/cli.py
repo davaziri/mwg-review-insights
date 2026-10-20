@@ -8,6 +8,7 @@
 """
 
 import argparse
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -63,16 +64,20 @@ def record_fixtures(app_id: int, pages: int, sort_filter: int, out_dir: Path) ->
 
     settings = get_settings()
     out_dir.mkdir(parents=True, exist_ok=True)
-    ids: dict[str, str] = {}
     cursor = FIRST_CURSOR
     with SteamClient.from_settings(settings) as client:
+        details = out_dir / f"appdetails_{app_id}.json"
+        details.write_text(json.dumps(client.get_appdetails(app_id), indent=2, ensure_ascii=False))
+        print(f"Wrote {details}")
         for n in range(1, pages + 1):
             body = client.get_reviews_raw(app_id, cursor, sort_filter=sort_filter)
             page = parse_reviews_response(body)
             for review in page.reviews:
                 author = review.get("author") or {}
                 if "steamid" in author:
-                    author["steamid"] = ids.setdefault(str(author["steamid"]), f"7656119800000{len(ids):04d}")
+                    # Same placeholder for the same author across files; not reversible.
+                    digest = int(hashlib.sha256(str(author["steamid"]).encode()).hexdigest(), 16)
+                    author["steamid"] = f"7656119800{digest % 10**7:07d}"
             path = out_dir / f"reviews_{app_id}_filter{sort_filter}_page{n}.json"
             path.write_text(json.dumps({"request_cursor": cursor, "body": body}, indent=2, ensure_ascii=False))
             print(f"Wrote {path}")

@@ -23,5 +23,6 @@ export function dateTime(value: string | null): string {
 export const number = (n: number) => n.toLocaleString();
 
 export function percent(part: number, whole: number): string {
-  return whole > 0 ? `${Math.round((part / whole) * 100)}%` : "";
+  // Steam truncates its percentage (283 of 305 is "92%"), so match it.
+  return whole > 0 ? `${Math.floor((part / whole) * 100)}%` : "";
 }

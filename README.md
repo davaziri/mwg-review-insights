@@ -7,7 +7,7 @@ Internal tool that pulls every Steam review for each Midwest Games title, finds 
 
 | Phase | Status |
 |---|---|
-| 1. Review ingestion | Built; waiting on a live check against Steam |
+| 1. Review ingestion | Done; verified against live Steam |
 | 2. Analysis pipeline | Not started |
 | 3. App UI | Not started |
 | 4. Exports | Not started |

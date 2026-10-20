@@ -1,10 +1,13 @@
 import pytest
 import respx
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from app.config import Settings
-from app.db import create_db_engine
+from app.db import create_db_engine, get_session
+from app.main import create_app
 from app.models import Base, Title
+from app.seed import seed_titles
 from app.steam.client import APPDETAILS_URL, REVIEWS_URL, SteamClient
 from tests.fakes import FakeSteam
 
@@ -58,6 +61,23 @@ def steam_client(sleeps, fake_steam):
     client = SteamClient(min_interval=0, max_retries=2, sleep=sleeps.append, jitter=lambda: 0.0)
     yield client
     client.close()
+
+
+@pytest.fixture
+def api(session_factory, settings, monkeypatch) -> TestClient:
+    """The FastAPI app wired to the test database and settings, with the seed titles loaded."""
+    monkeypatch.setattr("app.api.titles.get_settings", lambda: settings)
+    monkeypatch.setattr("app.api.sync.get_settings", lambda: settings)
+    app = create_app()
+
+    def _session():
+        with session_factory() as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _session
+    with session_factory() as s:
+        seed_titles(s)
+    return TestClient(app)
 
 
 @pytest.fixture
