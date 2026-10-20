@@ -1,4 +1,5 @@
-"""Background worker: runs queued syncs and queues the nightly sync for every active title.
+"""Background worker: runs queued syncs, advances confirmed analysis runs, and queues the
+nightly sync for every active title.
 
 The worker is the only process that crawls Steam reviews, and it runs one sync at a time, so
 the client's request throttle holds across all titles.
@@ -15,6 +16,8 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.analysis.llm import AnthropicLLM, LLMClient
+from app.analysis.runs import process_analysis
 from app.config import Settings, get_settings
 from app.models import SyncRun, Title
 from app.steam.client import SteamClient
@@ -85,7 +88,15 @@ def main() -> None:
             runs = enqueue_all_active(session, settings)
         log.info("Nightly sync: queued %s run(s)", len(runs))
 
-    # The scheduler only queues work; the main thread drains the queue one run at a time.
+    llm: list[LLMClient] = []
+
+    def llm_factory() -> LLMClient:
+        # Created on first use, so the worker runs (and syncs) without an API key.
+        if not llm:
+            llm.append(AnthropicLLM(settings))
+        return llm[0]
+
+    # The scheduler only queues work; the main thread drains the queues one run at a time.
     scheduler = BackgroundScheduler(timezone=settings.sync_timezone)
     scheduler.add_job(
         nightly,
@@ -102,6 +113,7 @@ def main() -> None:
     try:
         while True:
             process_queue(SessionLocal, settings, client)
+            process_analysis(SessionLocal, settings, llm_factory)
             time.sleep(settings.worker_poll_seconds)
     except KeyboardInterrupt:
         pass

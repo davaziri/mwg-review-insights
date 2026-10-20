@@ -14,6 +14,7 @@ from datetime import timedelta
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app.analysis.prep import prepare_review
 from app.config import Settings
 from app.models import Review, ReviewSnapshot, SyncRun, Title
 from app.models.sync import ACTIVE_STATUSES
@@ -122,9 +123,9 @@ def upsert_reviews(
         stats.seen += 1
         review = existing.get(rec_id)
         if review is None:
-            session.add(
-                Review(title_id=title_id, app_id=app_id, first_seen_at=seen_at, last_seen_at=seen_at, **fields)
-            )
+            review = Review(title_id=title_id, app_id=app_id, first_seen_at=seen_at, last_seen_at=seen_at, **fields)
+            prepare_review(review)
+            session.add(review)
             stats.new += 1
             continue
         if (review.title_id, review.app_id) != (title_id, app_id):
@@ -137,6 +138,7 @@ def upsert_reviews(
             stats.restored += 1
         for key, value in fields.items():
             setattr(review, key, value)
+        prepare_review(review)
         review.last_seen_at = seen_at
     return stats
 

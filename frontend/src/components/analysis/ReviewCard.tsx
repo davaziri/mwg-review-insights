@@ -1,0 +1,95 @@
+import { useState } from "react";
+
+import type { Mention, TaggedReview } from "../../api/types";
+import { Badge, SENTIMENT_STYLE } from "../ui";
+
+type Segment = { text: string; marks: Mention[] };
+
+/** Split the review text into runs, each covered by the same set of verified quotes. */
+function segments(text: string, mentions: Mention[]): Segment[] {
+  const spans = mentions.filter((m) => m.quote_status === "ok" && m.quote_start !== null && m.quote_end !== null);
+  const cuts = new Set<number>([0, text.length]);
+  spans.forEach((m) => {
+    cuts.add(m.quote_start!);
+    cuts.add(m.quote_end!);
+  });
+  const points = [...cuts].sort((a, b) => a - b);
+  const out: Segment[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const [a, b] = [points[i], points[i + 1]];
+    if (a === b) continue;
+    out.push({ text: text.slice(a, b), marks: spans.filter((m) => m.quote_start! <= a && m.quote_end! >= b) });
+  }
+  return out;
+}
+
+const SENTIMENT_WORD = { positive: "positive", negative: "negative", mixed: "mixed" } as const;
+
+const LONG_REVIEW = 1200;
+
+export function ReviewCard({ review }: { review: TaggedReview }) {
+  const parts = segments(review.text, review.mentions);
+  const long = review.text.length > LONG_REVIEW || review.text.split("\n").length > 16;
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-4">
+      <header className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <Badge tone={review.voted_up ? "green" : "red"}>{review.voted_up ? "Recommended" : "Not recommended"}</Badge>
+        {review.date && <span>{review.date}</span>}
+        {review.playtime_at_review_hours !== null && <span>{review.playtime_at_review_hours}h at review</span>}
+        <span>{review.language}</span>
+        {review.early_access && <span>Early Access</span>}
+        {review.steam_deck && <span>Steam Deck</span>}
+        <a className="ml-auto font-medium text-brand hover:underline" href={review.url} target="_blank" rel="noreferrer">
+          Open on Steam
+        </a>
+      </header>
+
+      <p className={`whitespace-pre-wrap text-sm leading-relaxed text-slate-800 ${long && !expanded ? "max-h-64 overflow-hidden" : ""}`}>
+        {parts.map((p, i) =>
+          p.marks.length ? (
+            <mark
+              key={i}
+              className={`rounded-sm px-0.5 underline decoration-2 underline-offset-2 ${SENTIMENT_STYLE[p.marks[0].sentiment].mark}`}
+              title={p.marks.map((m) => `${m.theme_name} (${SENTIMENT_WORD[m.sentiment]})`).join(", ")}
+            >
+              {p.text}
+            </mark>
+          ) : (
+            <span key={i}>{p.text}</span>
+          ),
+        )}
+      </p>
+      {long && (
+        <button type="button" className="mt-1 text-xs font-medium text-brand hover:underline" onClick={() => setExpanded(!expanded)}>
+          {expanded ? "Show less" : "Show full review"}
+        </button>
+      )}
+
+      {review.gist_en && (
+        <p className="mt-2 rounded bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <span className="font-medium">English gist (machine-written, not a quote):</span> {review.gist_en}
+        </p>
+      )}
+
+      <footer className="mt-3 flex flex-wrap gap-1.5">
+        {review.mentions.length === 0 && <span className="text-xs text-slate-500">No themes tagged</span>}
+        {review.mentions.map((m) => (
+          <span
+            key={m.theme_key}
+            className={`rounded border px-1.5 py-0.5 text-xs ${SENTIMENT_STYLE[m.sentiment].chip}`}
+            title={m.quote_status === "dropped" ? "The model's quote did not match the review text, so it is not shown." : undefined}
+          >
+            {m.theme_name}: {SENTIMENT_WORD[m.sentiment]}
+            {m.quote_status !== "ok" && <span className="opacity-70"> (no quote)</span>}
+          </span>
+        ))}
+        {review.other_flag && (
+          <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-xs text-slate-700" title={review.other_note ?? ""}>
+            Other: {review.other_note}
+          </span>
+        )}
+      </footer>
+    </article>
+  );
+}

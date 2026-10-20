@@ -5,7 +5,9 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 
 import "./index.css";
 import { Layout } from "./components/Layout";
+import { QualityPage } from "./pages/QualityPage";
 import { SyncLogPage } from "./pages/SyncLogPage";
+import { TitleAnalysisPage } from "./pages/TitleAnalysisPage";
 import { TitlesPage } from "./pages/TitlesPage";
 import { applyBrand } from "./theme/brand";
 
@@ -21,6 +23,8 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <TitlesPage /> },
       { path: "/sync-log", element: <SyncLogPage /> },
+      { path: "/titles/:id/analysis", element: <TitleAnalysisPage /> },
+      { path: "/quality", element: <QualityPage /> },
     ],
   },
 ]);

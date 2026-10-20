@@ -65,6 +65,12 @@ class Review(Base):
     # The review exactly as Steam returned it, so no field is ever lost.
     raw_json: Mapped[dict] = mapped_column(JSON)
 
+    # Derived by app.analysis.prep whenever the review is stored or edited.
+    # display_text is review_text with Steam's [b]/[h1]/[list] markup removed; quotes index into it.
+    display_text: Mapped[str | None] = mapped_column(Text)
+    content_status: Mapped[str | None] = mapped_column(String(20))  # ok | no_content
+    playtime_band: Mapped[str | None] = mapped_column(String(20))
+
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime)

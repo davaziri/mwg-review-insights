@@ -26,6 +26,9 @@ export function Layout() {
             <NavLink to="/sync-log" className={navClass}>
               Sync log
             </NavLink>
+            <NavLink to="/quality" className={navClass}>
+              Analysis quality
+            </NavLink>
           </nav>
         </div>
       </header>

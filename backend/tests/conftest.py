@@ -64,10 +64,20 @@ def steam_client(sleeps, fake_steam):
 
 
 @pytest.fixture
-def api(session_factory, settings, monkeypatch) -> TestClient:
-    """The FastAPI app wired to the test database and settings, with the seed titles loaded."""
-    monkeypatch.setattr("app.api.titles.get_settings", lambda: settings)
-    monkeypatch.setattr("app.api.sync.get_settings", lambda: settings)
+def fake_llm():
+    from tests.fake_llm import FakeLLM
+
+    return FakeLLM()
+
+
+@pytest.fixture
+def api(session_factory, settings, monkeypatch, fake_llm) -> TestClient:
+    """The FastAPI app wired to the test database, settings and fake LLM, with seed titles loaded."""
+    from app.api import analysis
+
+    for module in ("titles", "sync", "analysis"):
+        monkeypatch.setattr(f"app.api.{module}.get_settings", lambda: settings)
+    monkeypatch.setattr(analysis, "_llm", lambda: fake_llm)
     app = create_app()
 
     def _session():
@@ -75,6 +85,7 @@ def api(session_factory, settings, monkeypatch) -> TestClient:
             yield s
 
     app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[analysis.get_llm] = lambda: fake_llm
     with session_factory() as s:
         seed_titles(s)
     return TestClient(app)

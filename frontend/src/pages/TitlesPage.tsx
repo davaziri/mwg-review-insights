@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { Link } from "react-router";
 
 import { api } from "../api/client";
 import type { AppStats, Title } from "../api/types";
@@ -127,7 +128,10 @@ function TitleRow({ title, act, onEdit }: { title: Title; act: (fn: () => Promis
         ))}
       </div>
 
-      <div className="flex items-center gap-2 md:w-36 md:justify-end">
+      <div className="flex items-center gap-2 md:w-52 md:justify-end">
+        <Link to={`/titles/${title.id}/analysis`} className="rounded-md px-2 py-1.5 text-sm font-medium text-brand hover:bg-slate-100">
+          Themes
+        </Link>
         <Button variant="primary" disabled={busy || archived} onClick={() => act(() => api.syncTitle(title.id))}>
           {running ? "Syncing" : busy ? "Queued" : "Sync now"}
         </Button>

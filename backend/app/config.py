@@ -51,10 +51,29 @@ class Settings(BaseSettings):
     sync_timezone: str = "America/Chicago"
     worker_poll_seconds: float = 5.0
 
-    # Anthropic (used from Phase 2)
+    # Anthropic
     anthropic_api_key: str | None = None
+    # Set explicitly so an ANTHROPIC_BASE_URL meant for other tools never redirects the app.
+    anthropic_api_base: str = "https://api.anthropic.com"
     model_tagging: str = "claude-haiku-5-5"
     model_analysis: str = "claude-sonnet-5-5"
+    tagging_effort: str = "low"
+    analysis_effort: str = "high"
+    # Extra or overriding prices, USD per million tokens, e.g.
+    # MODEL_PRICES='{"claude-haiku-5-5": {"input": 0.1, "output": 0.5, "cache_write": 0.125, "cache_read": 0.01}}'
+    model_prices: dict[str, dict[str, float]] = {}
+
+    # Analysis pipeline
+    tagging_reviews_per_request: int = 20
+    tagging_output_tokens_per_review: int = 250  # estimate only, until real runs give an average
+    discovery_sample_size: int = 400
+    discovery_min_reviews: int = 30
+    qa_sample_rate: float = 0.05
+    qa_min_reviews: int = 20
+    other_flag_threshold: float = 0.10
+    # Runs that tag fewer reviews than this call the API directly; larger ones use the Batches API.
+    direct_max_reviews: int = 100
+    batch_poll_seconds: int = 30
 
     @property
     def steam_request_interval(self) -> float:

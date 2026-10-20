@@ -173,3 +173,10 @@ Confirmed against live Steam on 2026-10-20:
 - Stored counts matched Steam's `total_reviews` exactly for every title (Tombwater 305, Duck Paradox 331,
   Hive Jump 2 114, Dark Sky 71, The Lullaby of Life 45, GodsTV demo 126, others 0).
 - A second sync ran incrementally: one request, nothing new or edited.
+
+Phase 2 notes (decided while building):
+
+- Analysis runs and summaries are per Steam app, so GodsTV's demo (126 reviews) can be analyzed on its own; codebooks stay per title.
+- The QA re-tag uses 5% of the reviews tagged in a run, with a minimum of 20 (5% of a 300-review title would be 15).
+- Steam review markup ([b], [h1], [list]) is removed into a `display_text` field; quotes are matched and highlighted against it.
+- Sonnet 5.5 direct calls opt into Anthropic's server-side refusal fallback; Haiku 5.5 has none, so a declined or missing review gets one more try on its own and otherwise stays pending for the next run.

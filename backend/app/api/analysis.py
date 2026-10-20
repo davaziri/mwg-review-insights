@@ -1,0 +1,554 @@
+"""Analysis API: codebooks, cost estimates and runs, theme stats, tagged reviews, summary, quality."""
+
+import random
+from datetime import UTC, date, datetime
+from functools import lru_cache
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.analysis.aggregate import Filters, current_tag_join, review_filter_clauses, theme_stats
+from app.analysis.codebooks import CodebookError, ThemeInput, approve, approved_codebook, create_version, themes_for
+from app.analysis.llm import AnthropicLLM, LLMClient, LLMNotConfigured
+from app.analysis.prep import PLAYTIME_BAND_LABELS
+from app.analysis.runs import RunError, active_run, cancel, confirm, estimate_analysis, estimate_discovery
+from app.analysis.tagging import pending_reviews
+from app.config import get_settings
+from app.db import get_session
+from app.models import AnalysisRun, Codebook, Review, ReviewTag, Summary, Theme, ThemeMention, Title
+
+router = APIRouter(prefix="/api", tags=["analysis"])
+
+
+@lru_cache
+def _llm() -> AnthropicLLM:
+    return AnthropicLLM(get_settings())
+
+
+def get_llm() -> LLMClient:
+    try:
+        return _llm()
+    except LLMNotConfigured as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+# Helpers
+
+
+def _title(session: Session, title_id: int) -> Title:
+    title = session.get(Title, title_id)
+    if title is None:
+        raise HTTPException(404, "Title not found")
+    return title
+
+
+def _app(title: Title, app_id: int | None) -> int:
+    if app_id is None:
+        return title.steam_app_id
+    if app_id not in title.app_ids:
+        raise HTTPException(400, f"App {app_id} does not belong to {title.name}")
+    return app_id
+
+
+def review_url(review: Review) -> str:
+    return f"https://steamcommunity.com/profiles/{review.author_steamid}/recommended/{review.app_id}/"
+
+
+def _date(ts: int | None) -> str | None:
+    return datetime.fromtimestamp(ts, UTC).date().isoformat() if ts else None
+
+
+def theme_out(t: Theme) -> dict:
+    return {
+        "id": t.id,
+        "key": t.key,
+        "name": t.name,
+        "definition": t.definition,
+        "include_notes": t.include_notes,
+        "exclude_notes": t.exclude_notes,
+        "example_review_ids": t.example_review_ids,
+        "derived_from": t.derived_from,
+        "sort_order": t.sort_order,
+    }
+
+
+def codebook_out(session: Session, cb: Codebook, with_themes: bool = True) -> dict:
+    out = {
+        "id": cb.id,
+        "title_id": cb.title_id,
+        "version": cb.version,
+        "status": cb.status,
+        "parent_id": cb.parent_id,
+        "created_by": cb.created_by,
+        "note": cb.note,
+        "needs_review_reason": cb.needs_review_reason,
+        "created_at": cb.created_at,
+        "approved_at": cb.approved_at,
+    }
+    themes = themes_for(session, cb.id)
+    out["theme_count"] = len(themes)
+    if with_themes:
+        out["themes"] = [theme_out(t) for t in themes]
+    return out
+
+
+def run_out(run: AnalysisRun) -> dict:
+    details = dict(run.details or {})
+    for big in ("review_ids", "qa_review_ids", "sample_review_ids", "retried_review_ids"):
+        details.pop(big, None)
+    batches = {k: {kk: vv for kk, vv in v.items() if kk != "groups"} for k, v in (run.batches or {}).items()}
+    return {
+        "id": run.id,
+        "title_id": run.title_id,
+        "app_id": run.app_id,
+        "codebook_id": run.codebook_id,
+        "kind": run.kind,
+        "status": run.status,
+        "step": run.step,
+        "mode": run.mode,
+        "trigger": run.trigger,
+        "estimate": run.estimate,
+        "est_input_tokens": run.est_input_tokens,
+        "est_output_tokens": run.est_output_tokens,
+        "est_cost_usd": run.est_cost_usd,
+        "usage": run.usage,
+        "input_tokens": run.input_tokens,
+        "output_tokens": run.output_tokens,
+        "cache_read_tokens": run.cache_read_tokens,
+        "cache_write_tokens": run.cache_write_tokens,
+        "actual_cost_usd": run.actual_cost_usd,
+        "reviews_in_scope": run.reviews_in_scope,
+        "reviews_tagged": run.reviews_tagged,
+        "reviews_failed": run.reviews_failed,
+        "quotes_checked": run.quotes_checked,
+        "quotes_dropped": run.quotes_dropped,
+        "batches": batches,
+        "details": details,
+        "warning": run.warning,
+        "error": run.error,
+        "created_at": run.created_at,
+        "confirmed_at": run.confirmed_at,
+        "started_at": run.started_at,
+        "finished_at": run.finished_at,
+    }
+
+
+def _review_brief(review: Review, max_chars: int = 400) -> dict:
+    text = review.display_text or ""
+    return {
+        "recommendation_id": review.recommendation_id,
+        "excerpt": text if len(text) <= max_chars else text[:max_chars].rstrip() + "...",
+        "voted_up": review.voted_up,
+        "language": review.language,
+        "date": _date(review.timestamp_created),
+        "url": review_url(review),
+    }
+
+
+def _reviews_by_rec_id(session: Session, title_id: int, rec_ids: list[str]) -> dict[str, Review]:
+    if not rec_ids:
+        return {}
+    return {
+        r.recommendation_id: r
+        for r in session.scalars(select(Review).where(Review.title_id == title_id, Review.recommendation_id.in_(rec_ids)))
+    }
+
+
+# Overview
+
+
+@router.get("/titles/{title_id}/analysis")
+def analysis_overview(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
+    title = _title(session, title_id)
+    app = _app(title, app_id)
+    approved = approved_codebook(session, title.id)
+    latest = session.scalar(select(Codebook).where(Codebook.title_id == title.id).order_by(Codebook.version.desc()).limit(1))
+    counts = dict(
+        session.execute(
+            select(Review.content_status, func.count())
+            .where(Review.title_id == title.id, Review.app_id == app, Review.deleted_at.is_(None))
+            .group_by(Review.content_status)
+        ).all()
+    )
+    runs = session.scalars(
+        select(AnalysisRun)
+        .where(AnalysisRun.title_id == title.id, AnalysisRun.app_id == app, AnalysisRun.confirmed_at.is_not(None))
+        .order_by(AnalysisRun.id.desc())
+        .limit(10)
+    ).all()
+    active = active_run(session, title.id, app)
+    return {
+        "title": {"id": title.id, "name": title.name, "steam_app_id": title.steam_app_id, "demo_app_id": title.demo_app_id},
+        "app_id": app,
+        "reviews": {
+            "total": sum(counts.values()),
+            "with_content": counts.get("ok", 0),
+            "no_content": counts.get("no_content", 0),
+            "not_prepared": counts.get(None, 0),
+            "pending": len(pending_reviews(session, title.id, app, approved.id)) if approved else None,
+        },
+        "min_reviews_for_discovery": get_settings().discovery_min_reviews,
+        "approved_codebook": codebook_out(session, approved) if approved else None,
+        "latest_codebook": codebook_out(session, latest) if latest else None,
+        "active_run": run_out(active) if active else None,
+        "runs": [run_out(r) for r in runs],
+    }
+
+
+# Codebooks
+
+
+class ThemeIn(BaseModel):
+    key: str | None = None
+    name: str = Field(min_length=1, max_length=80)
+    definition: str = Field(min_length=1)
+    include_notes: str = ""
+    exclude_notes: str = ""
+    example_review_ids: list[str] = []
+    derived_from: list[dict] = []
+
+
+class CodebookIn(BaseModel):
+    parent_id: int | None = None
+    note: str | None = None
+    themes: list[ThemeIn]
+    approve: bool = False
+
+
+@router.get("/titles/{title_id}/codebooks")
+def list_codebooks(title_id: int, session: Session = Depends(get_session)):
+    _title(session, title_id)
+    books = session.scalars(select(Codebook).where(Codebook.title_id == title_id).order_by(Codebook.version.desc()))
+    return [codebook_out(session, cb, with_themes=False) for cb in books]
+
+
+@router.get("/codebooks/{codebook_id}")
+def get_codebook(codebook_id: int, session: Session = Depends(get_session)):
+    cb = session.get(Codebook, codebook_id)
+    if cb is None:
+        raise HTTPException(404, "Codebook not found")
+    out = codebook_out(session, cb)
+    example_ids = sorted({i for t in out["themes"] for i in t["example_review_ids"]})
+    reviews = _reviews_by_rec_id(session, cb.title_id, example_ids)
+    out["examples"] = {rid: _review_brief(r) for rid, r in reviews.items()}
+    return out
+
+
+@router.post("/titles/{title_id}/codebooks", status_code=201)
+def save_codebook(title_id: int, body: CodebookIn, session: Session = Depends(get_session)):
+    """Save edits as a new version (versions never change after saving)."""
+    _title(session, title_id)
+    try:
+        cb = create_version(
+            session,
+            title_id,
+            [ThemeInput(**t.model_dump()) for t in body.themes],
+            created_by="team",
+            note=body.note,
+            parent_id=body.parent_id,
+        )
+    except CodebookError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if body.approve:
+        approve(session, cb, approved_by="team")
+    return codebook_out(session, cb)
+
+
+@router.post("/codebooks/{codebook_id}/approve")
+def approve_codebook(codebook_id: int, session: Session = Depends(get_session)):
+    cb = session.get(Codebook, codebook_id)
+    if cb is None:
+        raise HTTPException(404, "Codebook not found")
+    if active_run(session, cb.title_id, session.get(Title, cb.title_id).steam_app_id):
+        raise HTTPException(409, "An analysis is running for this title. Approve a codebook after it finishes.")
+    approve(session, cb, approved_by="team")
+    return codebook_out(session, cb)
+
+
+# Runs
+
+
+class EstimateIn(BaseModel):
+    kind: Literal["discovery", "analysis"]
+    app_id: int | None = None
+
+
+@router.post("/titles/{title_id}/analysis/estimate", status_code=201)
+def create_estimate(
+    title_id: int, body: EstimateIn, session: Session = Depends(get_session), llm: LLMClient = Depends(get_llm)
+):
+    """Price a run before anything is spent. Nothing runs until the estimate is confirmed."""
+    title = _title(session, title_id)
+    app = _app(title, body.app_id)
+    settings = get_settings()
+    try:
+        if body.kind == "discovery":
+            run = estimate_discovery(session, settings, llm, title, app)
+        else:
+            run = estimate_analysis(session, settings, llm, title, app)
+    except RunError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return run_out(run)
+
+
+def _run(session: Session, run_id: int) -> AnalysisRun:
+    run = session.get(AnalysisRun, run_id)
+    if run is None:
+        raise HTTPException(404, "Run not found")
+    return run
+
+
+@router.post("/analysis-runs/{run_id}/confirm")
+def confirm_run(run_id: int, session: Session = Depends(get_session)):
+    try:
+        return run_out(confirm(session, _run(session, run_id)))
+    except RunError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/analysis-runs/{run_id}/cancel")
+def cancel_run(run_id: int, session: Session = Depends(get_session)):
+    run = _run(session, run_id)
+    llm = None
+    if run.batches:
+        try:
+            llm = _llm()
+        except LLMNotConfigured:
+            llm = None
+    try:
+        return run_out(cancel(session, run, llm))
+    except RunError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.get("/analysis-runs/{run_id}")
+def get_run(run_id: int, session: Session = Depends(get_session)):
+    return run_out(_run(session, run_id))
+
+
+@router.get("/analysis-runs")
+def list_runs(title_id: int | None = None, limit: int = Query(50, ge=1, le=500), session: Session = Depends(get_session)):
+    query = select(AnalysisRun, Title.name).join(Title, Title.id == AnalysisRun.title_id)
+    if title_id is not None:
+        query = query.where(AnalysisRun.title_id == title_id)
+    rows = session.execute(query.order_by(AnalysisRun.id.desc()).limit(limit)).all()
+    return [{**run_out(run), "title_name": name} for run, name in rows]
+
+
+# Stats and reviews
+
+
+def _filters(
+    app_id: int | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    vote: Literal["positive", "negative"] | None = None,
+    playtime: list[str] = Query(default=[]),
+    language: list[str] = Query(default=[]),
+    early_access: bool | None = None,
+    steam_deck: bool | None = None,
+    has_dev_response: bool | None = None,
+) -> Filters:
+    return Filters(
+        app_id=app_id,
+        date_from=date_from,
+        date_to=date_to,
+        voted_up=None if vote is None else vote == "positive",
+        playtime_bands=playtime,
+        languages=language,
+        early_access=early_access,
+        steam_deck=steam_deck,
+        has_dev_response=has_dev_response,
+    )
+
+
+@router.get("/titles/{title_id}/themes/stats")
+def stats(title_id: int, f: Filters = Depends(_filters), session: Session = Depends(get_session)):
+    title = _title(session, title_id)
+    f.app_id = _app(title, f.app_id)
+    cb = approved_codebook(session, title.id)
+    themes = themes_for(session, cb.id) if cb else []
+    out = theme_stats(session, title.id, cb.id if cb else None, themes, f)
+    out["codebook"] = {"id": cb.id, "version": cb.version} if cb else None
+    out["playtime_labels"] = PLAYTIME_BAND_LABELS
+    return out
+
+
+@router.get("/titles/{title_id}/reviews/tagged")
+def tagged_reviews(
+    title_id: int,
+    f: Filters = Depends(_filters),
+    theme: str | None = None,
+    sentiment: Literal["positive", "negative", "mixed"] | None = None,
+    random_sample: int | None = Query(None, alias="random", ge=1, le=100),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    session: Session = Depends(get_session),
+):
+    """Analyzed reviews with their themes and verified quotes. random=N gives a fresh random sample
+    (the spot check); otherwise newest first, optionally limited to one theme and sentiment."""
+    title = _title(session, title_id)
+    f.app_id = _app(title, f.app_id)
+    cb = approved_codebook(session, title.id)
+    if cb is None:
+        return {"total": 0, "reviews": []}
+    themes = {t.id: t for t in themes_for(session, cb.id)}
+    query = (
+        select(Review.id, ReviewTag.id)
+        .join(ReviewTag, current_tag_join(cb.id))
+        .where(*review_filter_clauses(title.id, f), Review.content_status == "ok")
+    )
+    if theme:
+        theme_obj = next((t for t in themes.values() if t.key == theme), None)
+        if theme_obj is None:
+            raise HTTPException(400, f"Unknown theme '{theme}'")
+        mention = select(ThemeMention.review_tag_id).where(ThemeMention.theme_id == theme_obj.id)
+        if sentiment:
+            mention = mention.where(ThemeMention.sentiment == sentiment)
+        query = query.where(ReviewTag.id.in_(mention))
+    pairs = session.execute(query.order_by(Review.timestamp_created.desc())).all()
+    total = len(pairs)
+    if random_sample:
+        pairs = random.sample(pairs, min(random_sample, total))
+    else:
+        pairs = pairs[(page - 1) * page_size : page * page_size]
+
+    reviews = {r.id: r for r in session.scalars(select(Review).where(Review.id.in_([p[0] for p in pairs] or [-1])))}
+    tags = {t.id: t for t in session.scalars(select(ReviewTag).where(ReviewTag.id.in_([p[1] for p in pairs] or [-1])))}
+    mentions: dict[int, list[ThemeMention]] = {}
+    for m in session.scalars(select(ThemeMention).where(ThemeMention.review_tag_id.in_(list(tags) or [-1]))):
+        mentions.setdefault(m.review_tag_id, []).append(m)
+
+    out = []
+    for review_id, tag_id in pairs:
+        r, tag = reviews[review_id], tags[tag_id]
+        out.append(
+            {
+                "id": r.id,
+                "recommendation_id": r.recommendation_id,
+                "app_id": r.app_id,
+                "text": r.display_text,
+                "voted_up": r.voted_up,
+                "language": r.language,
+                "date": _date(r.timestamp_created),
+                "playtime_at_review_hours": round(r.author_playtime_at_review / 60, 1) if r.author_playtime_at_review is not None else None,
+                "playtime_band": r.playtime_band,
+                "early_access": r.written_during_early_access,
+                "steam_deck": r.primarily_steam_deck,
+                "votes_up": r.votes_up,
+                "developer_response": r.developer_response,
+                "url": review_url(r),
+                "gist_en": tag.gist_en,
+                "other_flag": tag.other_flag,
+                "other_note": tag.other_note,
+                "model": tag.model,
+                "mentions": [
+                    {
+                        "theme_key": themes[m.theme_id].key,
+                        "theme_name": themes[m.theme_id].name,
+                        "sentiment": m.sentiment,
+                        "quote_start": m.quote_start,
+                        "quote_end": m.quote_end,
+                        "quote_status": m.quote_status,
+                    }
+                    for m in sorted(mentions.get(tag.id, []), key=lambda m: (m.quote_start is None, m.quote_start or 0))
+                    if m.theme_id in themes
+                ],
+            }
+        )
+    return {"total": total, "reviews": out, "codebook": {"id": cb.id, "version": cb.version}}
+
+
+@router.get("/titles/{title_id}/summary")
+def latest_summary(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
+    title = _title(session, title_id)
+    app = _app(title, app_id)
+    s = session.scalar(
+        select(Summary).where(Summary.title_id == title.id, Summary.app_id == app).order_by(Summary.id.desc()).limit(1)
+    )
+    if s is None:
+        return None
+    content = s.content
+    ids = {i for item in content.get("strengths", []) + content.get("problems", []) for i in item.get("review_ids", [])}
+    ids |= set(content.get("last_30_days", {}).get("review_ids", []))
+    reviews = _reviews_by_rec_id(session, title.id, sorted(ids))
+    return {
+        "id": s.id,
+        "model": s.model,
+        "created_at": s.created_at,
+        "codebook_id": s.codebook_id,
+        "content": content,
+        "cited_reviews": {rid: _review_brief(r, 300) for rid, r in reviews.items()},
+    }
+
+
+@router.get("/titles/{title_id}/quality")
+def quality(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
+    """Everything the Analysis quality page shows for one title."""
+    title = _title(session, title_id)
+    app = _app(title, app_id)
+    cb = approved_codebook(session, title.id)
+    qa_run = session.scalar(
+        select(AnalysisRun)
+        .where(AnalysisRun.title_id == title.id, AnalysisRun.app_id == app, AnalysisRun.kind == "analysis", AnalysisRun.status == "succeeded")
+        .where(AnalysisRun.details["qa"].is_not(None))
+        .order_by(AnalysisRun.id.desc())
+        .limit(1)
+    )
+    quotes = {}
+    other_notes: list[dict] = []
+    analyzed = 0
+    if cb:
+        quotes = dict(
+            session.execute(
+                select(ThemeMention.quote_status, func.count())
+                .join(ReviewTag, ReviewTag.id == ThemeMention.review_tag_id)
+                .join(Review, current_tag_join(cb.id))
+                .where(Review.title_id == title.id, Review.app_id == app, Review.deleted_at.is_(None))
+                .group_by(ThemeMention.quote_status)
+            ).all()
+        )
+        rows = session.execute(
+            select(Review, ReviewTag)
+            .join(ReviewTag, current_tag_join(cb.id))
+            .where(Review.title_id == title.id, Review.app_id == app, Review.deleted_at.is_(None))
+        ).all()
+        analyzed = len(rows)
+        flagged = [(r, t) for r, t in rows if t.other_flag]
+        flagged.sort(key=lambda x: -(x[0].timestamp_created or 0))
+        other_notes = [{"note": t.other_note, **_review_brief(r, 200)} for r, t in flagged[:50]]
+        other_count = len(flagged)
+    else:
+        other_count = 0
+    # Estimates closed without running are not part of the log.
+    runs = session.scalars(
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.title_id == title.id,
+            AnalysisRun.status.in_(["succeeded", "failed", "canceled"]),
+            AnalysisRun.confirmed_at.is_not(None),
+        )
+        .order_by(AnalysisRun.id.desc())
+        .limit(20)
+    ).all()
+    return {
+        "codebook": codebook_out(session, cb, with_themes=False) if cb else None,
+        "analyzed_reviews": analyzed,
+        "qa": (qa_run.details or {}).get("qa") if qa_run else None,
+        "qa_run_id": qa_run.id if qa_run else None,
+        "quotes": {
+            "verified": quotes.get("ok", 0),
+            "dropped": quotes.get("dropped", 0),
+            "no_quote": quotes.get("none", 0),
+        },
+        "other": {
+            "count": other_count,
+            "share": other_count / analyzed if analyzed else 0.0,
+            "threshold": get_settings().other_flag_threshold,
+            "notes": other_notes,
+        },
+        "runs": [run_out(r) for r in runs],
+    }

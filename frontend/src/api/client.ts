@@ -1,4 +1,19 @@
-import type { SyncMode, SyncRun, SyncRunWithTitle, Title, TitleCreate, TitleUpdate } from "./types";
+import type {
+  AnalysisOverview,
+  AnalysisRun,
+  Codebook,
+  Quality,
+  SummaryOut,
+  SyncMode,
+  SyncRun,
+  SyncRunWithTitle,
+  TaggedReview,
+  ThemeDraft,
+  ThemeStats,
+  Title,
+  TitleCreate,
+  TitleUpdate,
+} from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -42,4 +57,25 @@ export const api = {
     request<SyncRun[]>(`/api/titles/${id}/sync`, { method: "POST", body: json({ mode: mode ?? null }) }),
   syncAll: () => request<SyncRun[]>("/api/sync/all", { method: "POST" }),
   syncRuns: (limit = 100) => request<SyncRunWithTitle[]>(`/api/sync-runs?limit=${limit}`),
+
+  analysis: (titleId: number, appId?: number) =>
+    request<AnalysisOverview>(`/api/titles/${titleId}/analysis${qs({ app_id: appId })}`),
+  codebook: (id: number) => request<Codebook>(`/api/codebooks/${id}`),
+  saveCodebook: (titleId: number, body: { parent_id: number | null; note: string; themes: ThemeDraft[]; approve: boolean }) =>
+    request<Codebook>(`/api/titles/${titleId}/codebooks`, { method: "POST", body: json(body) }),
+  approveCodebook: (id: number) => request<Codebook>(`/api/codebooks/${id}/approve`, { method: "POST" }),
+  estimate: (titleId: number, kind: "discovery" | "analysis", appId?: number) =>
+    request<AnalysisRun>(`/api/titles/${titleId}/analysis/estimate`, { method: "POST", body: json({ kind, app_id: appId ?? null }) }),
+  confirmRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/confirm`, { method: "POST" }),
+  cancelRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/cancel`, { method: "POST" }),
+  stats: (titleId: number, appId?: number) => request<ThemeStats>(`/api/titles/${titleId}/themes/stats${qs({ app_id: appId })}`),
+  taggedReviews: (titleId: number, params: { app_id?: number; random?: number; theme?: string; sentiment?: string; page?: number }) =>
+    request<{ total: number; reviews: TaggedReview[] }>(`/api/titles/${titleId}/reviews/tagged${qs(params)}`),
+  summary: (titleId: number, appId?: number) => request<SummaryOut | null>(`/api/titles/${titleId}/summary${qs({ app_id: appId })}`),
+  quality: (titleId: number, appId?: number) => request<Quality>(`/api/titles/${titleId}/quality${qs({ app_id: appId })}`),
 };
+
+function qs(params: Record<string, string | number | undefined | null>): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()}` : "";
+}

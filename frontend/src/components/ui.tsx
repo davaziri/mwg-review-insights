@@ -38,17 +38,19 @@ export function Dialog({
   title,
   children,
   onClose,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
   return (
     <div
       className="fixed inset-0 z-20 flex items-start justify-center bg-slate-900/40 p-4 pt-[10vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div role="dialog" aria-label={title} className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+      <div role="dialog" aria-label={title} className={`w-full ${wide ? "max-w-2xl" : "max-w-md"} max-h-[85vh] overflow-y-auto rounded-lg bg-white p-5 shadow-xl`}>
         <h2 className="mb-4 text-base font-semibold">{title}</h2>
         {children}
       </div>
@@ -68,3 +70,23 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 
 export const inputClass =
   "w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand";
+
+export function Card({ title, actions, children }: { title?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="mb-5 rounded-lg border border-slate-200 bg-white">
+      {(title || actions) && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-3">
+          {title && <h2 className="mr-auto text-base font-semibold">{title}</h2>}
+          {actions}
+        </div>
+      )}
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+export const SENTIMENT_STYLE = {
+  positive: { chip: "bg-green-50 text-green-800 border-green-200", mark: "bg-green-100 decoration-green-600", bar: "bg-positive" },
+  mixed: { chip: "bg-amber-50 text-amber-800 border-amber-200", mark: "bg-amber-100 decoration-amber-600", bar: "bg-mixed" },
+  negative: { chip: "bg-red-50 text-red-800 border-red-200", mark: "bg-red-100 decoration-red-600", bar: "bg-negative" },
+} as const;

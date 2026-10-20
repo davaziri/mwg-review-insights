@@ -8,7 +8,7 @@ Internal tool that pulls every Steam review for each Midwest Games title, finds 
 | Phase | Status |
 |---|---|
 | 1. Review ingestion | Done; verified against live Steam |
-| 2. Analysis pipeline | Not started |
+| 2. Analysis pipeline | Built and tested; waiting on the first live run (needs the API key in this environment) |
 | 3. App UI | Not started |
 | 4. Exports | Not started |
 | 5. Access, scheduling, handoff | Not started |
@@ -55,6 +55,26 @@ Open http://localhost:8000. Two containers run from one image: `app` (API and we
 - The worker queues a sync for every non-archived title each night (default 3:00 America/Chicago, set by `SYNC_CRON` and `SYNC_TIMEZONE`). Unreleased titles show "No reviews yet" and start filling in on their own once reviews exist.
 - A title with a demo app (GodsTV) syncs the demo separately. Demo reviews are never mixed into the main title's numbers.
 
+## How analysis works
+
+Open a title from the Titles page (**Themes**).
+
+1. **Find themes.** The analysis model (`MODEL_ANALYSIS`) reads a stratified sample of up to 400 reviews (positive and negative, playtime bands, early access and full release, languages) and proposes 8 to 15 themes, each with a definition, include and exclude notes, and two example reviews. This is saved as a draft codebook.
+2. **Review the codebook.** Rename, merge, split, add or delete themes with **Edit themes**. Saving creates a new version; versions never change once saved. **Approve** the version you want used.
+3. **Analyze reviews.** The tagging model (`MODEL_TAGGING`) reads every review that has text and no tag for its current version under the approved codebook, 20 reviews per request. For each review it returns the themes mentioned, sentiment per theme, a short quote per theme, an "other" flag for points no theme covers, and an English gist for non-English reviews. Then the analysis model re-tags a random 5% (at least 20 reviews) as a quality check, and writes an executive summary citing review IDs.
+
+Every run starts as a **cost estimate** (input tokens counted by Anthropic's token counter, output estimated) and only runs after you confirm it. Actual tokens and cost are logged per run on the **Analysis quality** page. Runs with 100 or more reviews go through the Batches API at half price; smaller ones call the API directly.
+
+Rules the pipeline enforces in code:
+
+- **Quotes are verbatim.** Each quote must be found in the review's own text (exact match, or one that differs only in whitespace or letter case). The app stores the position and always shows the review's own text there. Quotes that fail are dropped and counted on the quality page.
+- **Unchanged reviews are never re-tagged.** A review is re-tagged only when Steam's `timestamp_updated` changes, or when a new codebook version is approved.
+- **No em dashes** in anything generated (theme text, gists, notes, summaries). Reviewers' own quotes are left as written.
+- If more than 10% of analyzed reviews raise points no theme covers, the codebook is flagged for review.
+- Reviews with almost no text ("good", "10/10", emoji) are stored as "no content" and counted, but not sent to the model.
+
+The **Spot check** on a title's page shows 20 random tagged reviews with their quotes highlighted, to check the tags by eye.
+
 ## Adding a title
 
 On the Titles page, click **Add title** and enter the Steam App ID (the number in the store URL). The name, image, release date and developer are filled in from Steam, and a first sync starts right away. Titles can also be edited, archived (hidden and no longer synced, history kept) or removed (deletes everything stored for it) from the ••• menu.
@@ -70,8 +90,11 @@ See [.env.example](.env.example). The main ones:
 | `SYNC_TIMEZONE` | `America/Chicago` | Timezone for `SYNC_CRON` |
 | `FULL_SYNC_INTERVAL_DAYS` | `7` | Days between full crawls (deletion checks) |
 | `DATABASE_URL` | `sqlite:///data/mwg.db` | Database location |
-| `ANTHROPIC_API_KEY` | empty | Needed from Phase 2 |
-| `MODEL_TAGGING`, `MODEL_ANALYSIS` | `claude-haiku-5-5`, `claude-sonnet-5-5` | Models used from Phase 2 |
+| `ANTHROPIC_API_KEY` | empty | Needed for analysis |
+| `MODEL_TAGGING`, `MODEL_ANALYSIS` | `claude-haiku-5-5`, `claude-sonnet-5-5` | Tagging model and analysis model |
+| `TAGGING_EFFORT`, `ANALYSIS_EFFORT` | `low`, `high` | How much each model reasons before answering |
+| `DIRECT_MAX_REVIEWS` | `100` | Runs with at least this many reviews use the Batches API |
+| `MODEL_PRICES` | built in | Override or add per-model prices (JSON) |
 
 ## Tests
 
