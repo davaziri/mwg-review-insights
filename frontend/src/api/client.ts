@@ -69,7 +69,10 @@ export const api = {
   confirmRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/confirm`, { method: "POST" }),
   cancelRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/cancel`, { method: "POST" }),
   stats: (titleId: number, appId?: number) => request<ThemeStats>(`/api/titles/${titleId}/themes/stats${qs({ app_id: appId })}`),
-  taggedReviews: (titleId: number, params: { app_id?: number; random?: number; theme?: string; sentiment?: string; page?: number }) =>
+  taggedReviews: (
+    titleId: number,
+    params: { app_id?: number; random?: number; theme?: string; sentiment?: string; overall?: string; page?: number },
+  ) =>
     request<{ total: number; reviews: TaggedReview[] }>(`/api/titles/${titleId}/reviews/tagged${qs(params)}`),
   summary: (titleId: number, appId?: number) => request<SummaryOut | null>(`/api/titles/${titleId}/summary${qs({ app_id: appId })}`),
   quality: (titleId: number, appId?: number) => request<Quality>(`/api/titles/${titleId}/quality${qs({ app_id: appId })}`),

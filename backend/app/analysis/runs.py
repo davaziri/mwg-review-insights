@@ -33,10 +33,11 @@ from app.analysis.llm import LLMClient, LLMNotConfigured, LLMRequest
 from app.analysis.prep import prepare_missing
 from app.analysis.pricing import Usage, request_cost
 from app.analysis.prompts import PROMPT_VERSION
-from app.analysis.qa import agreement, choose_qa_sample, qa_count
+from app.analysis.qa import agreement, choose_qa_sample, overall_agreement, qa_count
 from app.analysis.tagging import (
     ingest,
     mentions_by_key,
+    overall_of,
     parse_entries,
     pending_reviews,
     remaining,
@@ -454,6 +455,8 @@ def _qa(session, settings, llm, run, title, codebook, themes) -> bool:
     keys = {t.key for t in themes}
     model = settings.model_analysis
     per = settings.tagging_reviews_per_request
+    # Overall impression, primary vs QA, per re-checked review: {review_id: [primary, qa]}
+    overall_pairs: dict[str, list[str]] = dict((run.details or {}).get("qa_overall_pairs", {}))
 
     def build(group: list[Review]) -> LLMRequest:
         return tagging_request(title, themes, group, model=model, effort=settings.analysis_effort)
@@ -481,6 +484,9 @@ def _qa(session, settings, llm, run, title, codebook, themes) -> bool:
                         qa_sentiment=qa_m.get(t.key),
                     )
                 )
+            qa_overall, _ = overall_of(entry)
+            overall_pairs[str(review.id)] = [tags[review.id].overall_sentiment or "none", qa_overall or "none"]
+        _set(run, "details", "qa_overall_pairs", overall_pairs)
 
     done = set(session.scalars(select(QAResult.review_id).where(QAResult.analysis_run_id == run.id).distinct()))
     todo = [r for r in _load_reviews(session, list(tags)) if r.id not in done]
@@ -512,7 +518,17 @@ def _qa(session, settings, llm, run, title, codebook, themes) -> bool:
         .where(QAResult.analysis_run_id == run.id)
     ).all()
     checked = len({r for r in session.scalars(select(QAResult.review_id).where(QAResult.analysis_run_id == run.id))})
-    _set(run, "details", "qa", {"model": model, "reviews_checked": checked, **agreement(themes, rows)})
+    _set(
+        run,
+        "details",
+        "qa",
+        {
+            "model": model,
+            "reviews_checked": checked,
+            **agreement(themes, rows),
+            "overall_impression": overall_agreement(tuple(v) for v in overall_pairs.values()),
+        },
+    )
     session.commit()
     return True
 

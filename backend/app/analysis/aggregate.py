@@ -5,6 +5,8 @@ Definitions (also shown in the UI):
   version. Shares use analyzed reviews as the base; reviews with no text are counted separately.
 - share: analyzed reviews mentioning the theme / analyzed reviews.
 - net sentiment: (positive mentions - negative mentions) / all mentions, from -1 to +1.
+- overall impression: each analyzed review's overall view of the game (positive, mixed, negative,
+  or none), counted separately from the themes.
 """
 
 from collections import Counter, defaultdict
@@ -17,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.analysis.prep import PLAYTIME_BAND_LABELS, PLAYTIME_BANDS
 from app.models import Review, ReviewTag, Theme, ThemeMention
+from app.models.analysis import CURRENT_TAG_VERSION
 
 TOP_LANGUAGES = 8
 
@@ -49,6 +52,7 @@ class ReviewRow:
     has_dev_response: bool
     tag_id: int | None
     other_flag: bool = False
+    overall: str | None = None  # positive | negative | mixed | none, from the current tag
 
 
 def _ts(d: date, end: bool = False) -> int:
@@ -80,10 +84,12 @@ def review_filter_clauses(title_id: int, f: Filters) -> list:
 
 
 def current_tag_join(codebook_id: int):
-    """Join condition for the tag of a review's current version under a codebook."""
+    """Join condition for the current tag of a review: its current text, under this codebook,
+    made with the current tag version."""
     return and_(
         ReviewTag.review_id == Review.id,
         ReviewTag.codebook_id == codebook_id,
+        ReviewTag.tag_version == CURRENT_TAG_VERSION,
         func.coalesce(ReviewTag.review_timestamp_updated, 0) == func.coalesce(Review.timestamp_updated, 0),
     )
 
@@ -103,7 +109,7 @@ def load_rows(session: Session, title_id: int, codebook_id: int | None, f: Filte
         Review.developer_response.is_not(None),
     ]
     if codebook_id:
-        columns += [ReviewTag.id, ReviewTag.other_flag]
+        columns += [ReviewTag.id, ReviewTag.other_flag, ReviewTag.overall_sentiment]
     query = select(*columns).where(*review_filter_clauses(title_id, f))
     if codebook_id:
         query = query.outerjoin(ReviewTag, current_tag_join(codebook_id))
@@ -126,6 +132,7 @@ def load_rows(session: Session, title_id: int, codebook_id: int | None, f: Filte
                 has_dev_response=bool(r[10]),
                 tag_id=tag_id,
                 other_flag=bool(r[12]) if tag_id is not None else False,
+                overall=r[13] if tag_id is not None else None,
             )
         )
     return rows
@@ -171,6 +178,17 @@ def _cell(c: Counter, analyzed: int) -> dict:
     }
 
 
+def _overall(rows: list[ReviewRow]) -> dict:
+    """Overall impression across analyzed reviews: counts and shares of each sentiment."""
+    analyzed = [r for r in rows if r.tag_id is not None]
+    counts = Counter(r.overall or "none" for r in analyzed)
+    n = len(analyzed)
+    return {
+        key: {"count": counts.get(key, 0), "share": counts.get(key, 0) / n if n else 0.0}
+        for key in ("positive", "mixed", "negative", "none")
+    }
+
+
 def _segment_label(dimension: str, value) -> str:
     if dimension == "playtime_band":
         return PLAYTIME_BAND_LABELS.get(value, value)
@@ -200,6 +218,7 @@ def compute(rows: list[ReviewRow], mentions: dict[int, list[tuple[int, str]]], t
                 "reviews": len(mrows),
                 "analyzed": m_analyzed,
                 "positive_votes": sum(1 for r in mrows if r.voted_up),
+                "overall": _overall(mrows),
             }
         )
         counts = _theme_counts(mrows, mentions)
@@ -281,6 +300,7 @@ def compute(rows: list[ReviewRow], mentions: dict[int, list[tuple[int, str]]], t
             "median_hours": median(delays) if delays else None,
         },
         "other": {"count": other, "share": other / analyzed if analyzed else 0.0},
+        "overall": _overall(rows),
     }
 
 

@@ -22,6 +22,12 @@ CODEBOOK_STATUSES = ("draft", "approved", "superseded")
 RUN_KINDS = ("discovery", "analysis")
 RUN_STATUSES = ("estimated", "queued", "running", "succeeded", "failed", "canceled")
 SENTIMENTS = ("positive", "negative", "mixed")
+OVERALL_SENTIMENTS = ("positive", "negative", "mixed", "none")
+
+# What a tag records. Bump this when tagging starts recording something new: tags made under an
+# older version stop counting as current, and the next analysis run redoes them.
+# 1: themes, sentiment, quotes, other flag, gist.  2: adds the overall impression.
+CURRENT_TAG_VERSION = 2
 
 
 class Codebook(Base):
@@ -123,7 +129,7 @@ class ReviewTag(Base):
 
     __tablename__ = "review_tags"
     __table_args__ = (
-        UniqueConstraint("review_id", "codebook_id", "review_timestamp_updated"),
+        UniqueConstraint("review_id", "codebook_id", "review_timestamp_updated", "tag_version"),
         Index("ix_review_tags_codebook_review", "codebook_id", "review_id"),
     )
 
@@ -138,6 +144,14 @@ class ReviewTag(Base):
     other_flag: Mapped[bool] = mapped_column(Boolean, default=False)
     other_note: Mapped[str | None] = mapped_column(Text)
     raw_output: Mapped[dict | None] = mapped_column(JSON)
+    tag_version: Mapped[int] = mapped_column(Integer, default=CURRENT_TAG_VERSION, server_default="1")
+    # The reviewer's overall impression of the game as a whole, kept apart from the themes.
+    # The quote offsets index into reviews.display_text, like theme quotes.
+    overall_sentiment: Mapped[str | None] = mapped_column(String(10))  # positive | negative | mixed | none
+    overall_quote_start: Mapped[int | None] = mapped_column(Integer)
+    overall_quote_end: Mapped[int | None] = mapped_column(Integer)
+    overall_quote_status: Mapped[str | None] = mapped_column(String(10))  # ok | dropped | none
+    overall_raw_quote: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

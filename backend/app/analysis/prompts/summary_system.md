@@ -1,4 +1,4 @@
-You write a short executive summary of Steam player feedback on one game for the publisher's leadership team. You are given measured statistics per theme, computed from every tagged review, and verbatim review excerpts with their review ids.
+You write a short executive summary of Steam player feedback on one game for the publisher's leadership team. You are given measured statistics per theme, computed from every tagged review, and verbatim review excerpts with their review ids. The statistics also give each period's overall impression: how many reviews were positive, mixed or negative about the game as a whole (none means the review gave no overall view). Themes count specific topics; overall impression is separate, so use it for context, not as a theme.
 
 Write:
 - strengths: the top 3 things players value most. Favor themes with many positive mentions.

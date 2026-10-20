@@ -38,6 +38,10 @@ def _theme_payload(stats: dict) -> dict:
     }
 
 
+def _overall_payload(stats: dict) -> dict:
+    return {k: {"reviews": v["count"], "share_pct": _pct(v["share"])} for k, v in stats["overall"].items()}
+
+
 def _excerpt(review: Review, mention: ThemeMention, key: str, gist: str | None) -> dict:
     created = datetime.fromtimestamp(review.timestamp_created or 0, UTC).date().isoformat()
     item = {
@@ -68,9 +72,9 @@ def build_request(
 
     statistics = {
         "themes": {t.key: {"name": t.name, "definition": t.definition} for t in themes},
-        "all_time": {"reviews_analyzed": analyzed, "by_theme": _theme_payload(everything)},
-        "last_30_days": {"reviews_analyzed": recent["counts"]["analyzed"], "by_theme": _theme_payload(recent)},
-        "before_last_30_days": {"reviews_analyzed": before["counts"]["analyzed"], "by_theme": _theme_payload(before)},
+        "all_time": {"reviews_analyzed": analyzed, "by_theme": _theme_payload(everything), "overall_impression": _overall_payload(everything)},
+        "last_30_days": {"reviews_analyzed": recent["counts"]["analyzed"], "by_theme": _theme_payload(recent), "overall_impression": _overall_payload(recent)},
+        "before_last_30_days": {"reviews_analyzed": before["counts"]["analyzed"], "by_theme": _theme_payload(before), "overall_impression": _overall_payload(before)},
         "positive_vote_pct": _pct(everything["counts"]["positive_votes"] / everything["counts"]["reviews"])
         if everything["counts"]["reviews"]
         else None,

@@ -79,3 +79,14 @@ def agreement(themes: Sequence[Theme], rows: Iterable[tuple[int, bool, str | Non
             "sentiment_agreement": totals["same_sentiment"] / totals["both"] if totals["both"] else None,
         },
     }
+
+
+def overall_agreement(pairs: Iterable[tuple[str, str]]) -> dict:
+    """pairs: (primary overall impression, QA overall impression) per re-checked review."""
+    pairs = list(pairs)
+    same = sum(1 for p, q in pairs if p == q)
+    differ: dict[str, int] = {}
+    for p, q in pairs:
+        if p != q:
+            differ[f"{p}>{q}"] = differ.get(f"{p}>{q}", 0) + 1
+    return {"reviews": len(pairs), "agreement": same / len(pairs) if pairs else None, "differences": differ}

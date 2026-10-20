@@ -90,3 +90,13 @@ export const SENTIMENT_STYLE = {
   mixed: { chip: "bg-amber-50 text-amber-800 border-amber-200", mark: "bg-amber-100 decoration-amber-600", bar: "bg-mixed" },
   negative: { chip: "bg-red-50 text-red-800 border-red-200", mark: "bg-red-100 decoration-red-600", bar: "bg-negative" },
 } as const;
+
+/** The overall impression: a solid chip and an outlined quote, so it reads apart from the themes. */
+export const OVERALL_STYLE = {
+  positive: { chip: "bg-green-700 text-white border-green-700", outline: "ring-green-600" },
+  mixed: { chip: "bg-amber-600 text-white border-amber-600", outline: "ring-amber-500" },
+  negative: { chip: "bg-red-700 text-white border-red-700", outline: "ring-red-600" },
+  none: { chip: "bg-slate-100 text-slate-600 border-slate-300", outline: "ring-slate-400" },
+} as const;
+
+export const OVERALL_WORD = { positive: "positive", mixed: "mixed", negative: "negative", none: "no overall view" } as const;

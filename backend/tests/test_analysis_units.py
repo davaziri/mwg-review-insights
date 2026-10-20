@@ -12,19 +12,20 @@ THEMES = [SimpleNamespace(id=1, key="combat", name="Combat", definition="d"), Si
 JAN, FEB = 1_767_225_600, 1_769_904_000  # 2026-01-01, 2026-02-01 (UTC)
 
 
-def row(i, created, *, tag=True, up=True, band="2to10h", lang="english", ea=False, deck=False, refunded=False, content=True, dev=None, other=False):
+def row(i, created, *, tag=True, up=True, band="2to10h", lang="english", ea=False, deck=False, refunded=False, content=True, dev=None, other=False, overall="none"):
+    tagged = tag and content
     return ReviewRow(
         id=i, created=created, voted_up=up, playtime_band=band, language=lang, early_access=ea, steam_deck=deck,
         refunded=refunded, has_content=content, dev_responded_at=dev, has_dev_response=dev is not None,
-        tag_id=(100 + i) if tag and content else None, other_flag=other,
+        tag_id=(100 + i) if tagged else None, other_flag=other, overall=overall if tagged else None,
     )
 
 
 def test_aggregation_math():
     rows = [
-        row(1, JAN, band="lt2h", dev=JAN + 3600 * 10),
-        row(2, JAN, up=False, lang="german", dev=JAN + 3600 * 30),
-        row(3, FEB, ea=True, other=True),
+        row(1, JAN, band="lt2h", dev=JAN + 3600 * 10, overall="positive"),
+        row(2, JAN, up=False, lang="german", dev=JAN + 3600 * 30, overall="negative"),
+        row(3, FEB, ea=True, other=True, overall="positive"),
         row(4, FEB, deck=True, refunded=True),
         row(5, FEB, content=False),  # no text: counted, never analyzed
         row(6, FEB, tag=False),  # has text, not tagged yet
@@ -48,7 +49,13 @@ def test_aggregation_math():
     jan, feb = combat["monthly"]
     assert (jan["month"], jan["mentions"], jan["share"]) == ("2026-01", 2, 1.0)
     assert (feb["month"], feb["mentions"], feb["share"]) == ("2026-02", 1, 0.5)
-    assert out["months"][1] == {"month": "2026-02", "reviews": 4, "analyzed": 2, "positive_votes": 4}
+    feb_month = out["months"][1]
+    assert {k: feb_month[k] for k in ("month", "reviews", "analyzed", "positive_votes")} == {"month": "2026-02", "reviews": 4, "analyzed": 2, "positive_votes": 4}
+    assert {k: v["count"] for k, v in feb_month["overall"].items()} == {"positive": 1, "mixed": 0, "negative": 0, "none": 1}
+
+    # Overall impression: counted over analyzed reviews only, separately from the themes.
+    assert {k: v["count"] for k, v in out["overall"].items()} == {"positive": 2, "mixed": 0, "negative": 1, "none": 1}
+    assert out["overall"]["positive"]["share"] == 0.5
 
     bands = {s["segment"]: s for s in out["splits"]["playtime_band"]}
     assert bands["lt2h"]["analyzed"] == 1 and bands["lt2h"]["themes"]["combat"]["share"] == 1.0

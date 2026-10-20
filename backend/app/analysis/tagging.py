@@ -12,6 +12,7 @@ from app.analysis.llm import LLMRequest, LLMResult
 from app.analysis.quotes import locate_quote
 from app.analysis.text_rules import strip_em_dashes
 from app.models import AnalysisRun, Review, ReviewTag, Theme, ThemeMention, Title
+from app.models.analysis import CURRENT_TAG_VERSION, OVERALL_SENTIMENTS
 
 SENTIMENTS = {"positive", "negative", "mixed"}
 
@@ -72,6 +73,14 @@ def mentions_by_key(entry: dict, theme_keys: set[str]) -> dict[str, dict]:
     return out
 
 
+def overall_of(entry: dict) -> tuple[str | None, str]:
+    """The entry's overall impression: (sentiment or None if missing/invalid, quote)."""
+    overall = entry.get("overall")
+    if not isinstance(overall, dict) or overall.get("sentiment") not in OVERALL_SENTIMENTS:
+        return None, ""
+    return overall["sentiment"], (overall.get("quote") or "").strip()
+
+
 def ingest(
     session: Session,
     run: AnalysisRun,
@@ -94,11 +103,19 @@ def ingest(
                 ReviewTag.review_id == review.id,
                 ReviewTag.codebook_id == codebook_id,
                 ReviewTag.review_timestamp_updated == review.timestamp_updated,
+                ReviewTag.tag_version == CURRENT_TAG_VERSION,
             )
         )
         if already:
             continue
         other_flag = bool(entry.get("other_flag"))
+        overall, overall_quote = overall_of(entry)
+        overall_span = None
+        if overall and overall != "none" and overall_quote:
+            overall_span = locate_quote(review.display_text or "", overall_quote)
+            run.quotes_checked += 1
+            if overall_span is None:
+                run.quotes_dropped += 1
         tag = ReviewTag(
             review_id=review.id,
             codebook_id=codebook_id,
@@ -109,6 +126,12 @@ def ingest(
             other_flag=other_flag,
             other_note=(strip_em_dashes(entry.get("other_note", "").strip()) or None) if other_flag else None,
             raw_output=entry,
+            tag_version=CURRENT_TAG_VERSION,
+            overall_sentiment=overall,
+            overall_quote_start=overall_span[0] if overall_span else None,
+            overall_quote_end=overall_span[1] if overall_span else None,
+            overall_quote_status="ok" if overall_span else ("dropped" if overall_quote and overall != "none" else "none"),
+            overall_raw_quote=overall_quote or None,
         )
         session.add(tag)
         session.flush()

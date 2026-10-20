@@ -54,12 +54,14 @@ function QualityBody({ q }: { q: Quality }) {
             <p className="mb-3 text-sm text-slate-600">
               The analysis model ({q.qa.model}) re-tagged {q.qa.reviews_checked} random reviews without seeing the original tags. Agreement is
               how often both models made the same call on whether a theme is mentioned; kappa corrects that for chance (above 0.6 is good,
-              above 0.8 is very good). Sentiment agreement covers reviews where both found the theme.
+              above 0.8 is very good). Sentiment agreement covers reviews where both found the theme. Overall impression agreement is how often
+              both models read the reviewer's view of the whole game the same way.
             </p>
             <div className="mb-3 flex flex-wrap gap-6 text-sm">
               <Big label="Theme agreement" value={pct(q.qa.overall.presence_agreement)} />
               <Big label="Average kappa" value={q.qa.overall.mean_kappa === null ? "n/a" : q.qa.overall.mean_kappa.toFixed(2)} />
               <Big label="Sentiment agreement" value={pct(q.qa.overall.sentiment_agreement)} />
+              {q.qa.overall_impression && <Big label="Overall impression agreement" value={pct(q.qa.overall_impression.agreement)} />}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">

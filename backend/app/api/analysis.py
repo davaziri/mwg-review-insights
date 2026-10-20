@@ -383,13 +383,15 @@ def tagged_reviews(
     f: Filters = Depends(_filters),
     theme: str | None = None,
     sentiment: Literal["positive", "negative", "mixed"] | None = None,
+    overall: Literal["positive", "negative", "mixed", "none"] | None = None,
     random_sample: int | None = Query(None, alias="random", ge=1, le=100),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     session: Session = Depends(get_session),
 ):
     """Analyzed reviews with their themes and verified quotes. random=N gives a fresh random sample
-    (the spot check); otherwise newest first, optionally limited to one theme and sentiment."""
+    (the spot check); otherwise newest first, optionally limited to one theme and sentiment, or to
+    one overall impression."""
     title = _title(session, title_id)
     f.app_id = _app(title, f.app_id)
     cb = approved_codebook(session, title.id)
@@ -409,6 +411,8 @@ def tagged_reviews(
         if sentiment:
             mention = mention.where(ThemeMention.sentiment == sentiment)
         query = query.where(ReviewTag.id.in_(mention))
+    if overall:
+        query = query.where(func.coalesce(ReviewTag.overall_sentiment, "none") == overall)
     pairs = session.execute(query.order_by(Review.timestamp_created.desc())).all()
     total = len(pairs)
     if random_sample:
@@ -445,6 +449,12 @@ def tagged_reviews(
                 "other_flag": tag.other_flag,
                 "other_note": tag.other_note,
                 "model": tag.model,
+                "overall": {
+                    "sentiment": tag.overall_sentiment or "none",
+                    "quote_start": tag.overall_quote_start,
+                    "quote_end": tag.overall_quote_end,
+                    "quote_status": tag.overall_quote_status or "none",
+                },
                 "mentions": [
                     {
                         "theme_key": themes[m.theme_id].key,
@@ -517,6 +527,10 @@ def quality(title_id: int, app_id: int | None = None, session: Session = Depends
             .where(Review.title_id == title.id, Review.app_id == app, Review.deleted_at.is_(None))
         ).all()
         analyzed = len(rows)
+        # Overall impression quotes go through the same verbatim check, so they count here too.
+        for _, t in rows:
+            status = t.overall_quote_status or "none"
+            quotes[status] = quotes.get(status, 0) + 1
         flagged = [(r, t) for r, t in rows if t.other_flag]
         flagged.sort(key=lambda x: -(x[0].timestamp_created or 0))
         other_notes = [{"note": t.other_note, **_review_brief(r, 200)} for r, t in flagged[:50]]

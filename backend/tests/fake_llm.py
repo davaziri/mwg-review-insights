@@ -21,6 +21,8 @@ THEMES = {
     "art_style": ("Art style", ["art", "visual"]),
 }
 NEGATIVE_WORDS = ("bad", "awful", "crash", "overpriced", "boring", "差")
+OVERALL_POSITIVE = ("great game", "love it", "recommend", "amazing")
+OVERALL_NEGATIVE = ("waste of money", "do not buy", "terrible game")
 
 
 class FakeLLM:
@@ -121,12 +123,24 @@ class FakeLLM:
                 {
                     "review_id": rid,
                     "mentions": mentions,
+                    "overall": self._overall(sentences, paraphrase=rid in self.paraphrase_ids),
                     "other_flag": other,
                     "other_note": "Asks for a level editor — not covered." if other else "",
                     "gist_en": "" if language == "english" else "A short English summary of the review.",
                 }
             )
         return {"reviews": out}
+
+    def _overall(self, sentences: list[str], paraphrase: bool) -> dict:
+        pos = next((s for s in sentences if any(w in s.lower() for w in OVERALL_POSITIVE)), None)
+        neg = next((s for s in sentences if any(w in s.lower() for w in OVERALL_NEGATIVE)), None)
+        if pos and neg:
+            sentiment, quote = "mixed", pos
+        elif pos or neg:
+            sentiment, quote = ("positive", pos) if pos else ("negative", neg)
+        else:
+            return {"sentiment": "none", "quote": ""}
+        return {"sentiment": sentiment, "quote": "a really good game overall" if paraphrase else quote.strip()}
 
     def _summary(self, request: LLMRequest) -> dict:
         excerpts = json.loads(request.user.split("Review excerpts (JSON, verbatim):\n", 1)[1].rsplit("\n\nWrite the summary.", 1)[0])

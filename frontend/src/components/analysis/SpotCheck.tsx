@@ -24,8 +24,9 @@ export function SpotCheck({ titleId, appId }: { titleId: number; appId: number }
       }
     >
       <p className="text-sm text-slate-600">
-        Read each review and check you agree with its themes and sentiment. Highlighted text is copied exactly from the review and is what
-        the app quotes; hover a highlight to see its theme.
+        Read each review and check you agree with its overall impression, themes and sentiment. Highlighted text is copied exactly from the
+        review and is what the app quotes; hover a highlight to see its theme. Bold outlined text is the quote behind the overall
+        impression.
       </p>
       {sample.isError && <p className="mt-3 text-sm text-red-700">{sample.error.message}</p>}
       {sample.data && (

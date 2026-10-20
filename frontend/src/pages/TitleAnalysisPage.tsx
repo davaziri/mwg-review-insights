@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { CodebookPanel } from "../components/analysis/CodebookPanel";
 import { RunPanel } from "../components/analysis/RunPanel";
 import { SpotCheck } from "../components/analysis/SpotCheck";
+import { OverallImpression } from "../components/analysis/OverallImpression";
 import { SummaryPanel } from "../components/analysis/SummaryPanel";
 import { ThemesTable } from "../components/analysis/ThemesTable";
 import { Card } from "../components/ui";
@@ -89,6 +90,7 @@ export function TitleAnalysisPage() {
       {approved && analyzed > 0 && (
         <>
           <SummaryPanel titleId={titleId} appId={data.app_id} themeNames={themeNames} />
+          {stats.data && <OverallImpression stats={stats.data} />}
           {stats.data && <ThemesTable stats={stats.data} />}
           <SpotCheck titleId={titleId} appId={data.app_id} />
         </>

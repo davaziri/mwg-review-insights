@@ -15,9 +15,9 @@ from tests.fakes import make_review
 
 APP = 3308200
 TEXTS = [
-    ("The combat feels tight and fun. Great art style too.", True, "english"),
-    ("Combat is awful and boring. The price is fair though.", False, "english"),
-    ("Crashes every hour, so many bugs. Not worth the money.", False, "english"),
+    ("The combat feels tight and fun. Great art style too. Great game, I recommend it.", True, "english"),
+    ("Combat is awful and boring. The price is fair though. Amazing idea but do not buy yet.", False, "english"),
+    ("Crashes every hour, so many bugs. Not worth the money. Do not buy.", False, "english"),
     ("Love the visuals! The price is right for what you get.", True, "english"),
     ("战斗系统很棒。画面也不错。", True, "schinese"),
     ("good", True, "english"),  # no content
@@ -123,7 +123,9 @@ def test_full_analysis_tags_checks_and_summarizes(session, session_factory, sett
 
     # Quotes: the paraphrased one was dropped, every kept quote is the review's own text.
     dropped = session.scalars(select(ThemeMention).where(ThemeMention.quote_status == "dropped")).all()
-    assert run.quotes_dropped == len(dropped) > 0
+    dropped_overall = session.scalar(select(func.count()).select_from(ReviewTag).where(ReviewTag.overall_quote_status == "dropped"))
+    assert len(dropped) > 0 and dropped_overall == 1
+    assert run.quotes_dropped == len(dropped) + dropped_overall
     for m, text in session.execute(
         select(ThemeMention, Review.display_text)
         .join(ReviewTag, ReviewTag.id == ThemeMention.review_tag_id)
@@ -134,11 +136,34 @@ def test_full_analysis_tags_checks_and_summarizes(session, session_factory, sett
     chinese = session.scalar(select(ReviewTag).join(Review).where(Review.recommendation_id == "10004"))
     assert chinese.gist_en and "—" not in (chinese.gist_en or "")
 
+    # Overall impression: stored apart from the themes, its quote checked like theme quotes.
+    def tag_of(rec_id):
+        return session.execute(select(ReviewTag, Review.display_text).join(Review).where(Review.recommendation_id == rec_id)).one()
+
+    tag, text = tag_of("10000")
+    assert (tag.overall_sentiment, tag.overall_quote_status) == ("positive", "ok")
+    assert text[tag.overall_quote_start : tag.overall_quote_end] == "Great game, I recommend it."
+    tag, _ = tag_of("10001")  # mixed, but its quote was paraphrased, so the quote is dropped
+    assert (tag.overall_sentiment, tag.overall_quote_status, tag.overall_quote_start) == ("mixed", "dropped", None)
+    assert tag.overall_raw_quote == "a really good game overall"
+    tag, text = tag_of("10002")
+    assert (tag.overall_sentiment, text[tag.overall_quote_start : tag.overall_quote_end]) == ("negative", "Do not buy.")
+    tag, _ = tag_of("10003")
+    assert (tag.overall_sentiment, tag.overall_quote_status) == ("none", "none")
+
     # QA: the analysis model re-tagged 20 reviews and agreement was recorded per theme.
     assert session.scalar(select(func.count(func.distinct(QAResult.review_id)))) == 20
     qa = run.details["qa"]
     assert qa["reviews_checked"] == 20 and set(qa["themes"]) == {"combat_feel", "price_value", "bugs_crashes", "art_style"}
     assert qa["overall"]["presence_agreement"] == 1.0  # the fake is consistent with itself
+    assert qa["overall_impression"]["reviews"] == 20 and qa["overall_impression"]["agreement"] == 1.0
+
+    # Theme stats count the overall impression separately from the themes.
+    from app.analysis.aggregate import Filters, theme_stats
+
+    stats = theme_stats(session, seeded.id, cb.id, themes_for(session, cb.id), Filters(app_id=APP))
+    assert {k: v["count"] for k, v in stats["overall"].items()} == {"positive": 9, "mixed": 9, "negative": 9, "none": 27}
+    assert stats["overall"]["positive"]["share"] == pytest.approx(9 / 54)
 
     # Summary: stored, citations limited to excerpts the model was shown, no em dashes.
     s = session.scalar(select(Summary))
@@ -146,6 +171,7 @@ def test_full_analysis_tags_checks_and_summarizes(session, session_factory, sett
     assert "999999999" not in s.content["strengths"][0]["review_ids"]
     assert "—" not in s.content["strengths"][0]["detail"]
     assert "Removed" in run.warning
+    assert '"overall_impression"' in llm.calls[-1].user  # the summary sees the overall split
 
     # "other" stayed under 10%: no flag on the codebook.
     session.refresh(cb)
@@ -173,6 +199,28 @@ def test_unchanged_reviews_are_never_retagged_but_edits_are(session, session_fac
     review = session.scalar(select(Review).where(Review.recommendation_id == "10002"))
     tags = session.scalars(select(ReviewTag).where(ReviewTag.review_id == review.id)).all()
     assert len(tags) == 2  # the old version's tag is kept for history
+
+
+def test_tags_from_an_older_tag_version_are_redone(session, session_factory, settings, llm, seeded):
+    discover_and_approve(session, session_factory, settings, llm, seeded)
+    confirm(session, estimate_analysis(session, settings, llm, seeded, APP))
+    run_until_done(session_factory, settings, llm)
+    assert estimate_analysis(session, settings, llm, seeded, APP).reviews_in_scope == 0
+
+    # Tags made before the overall impression existed no longer count as current.
+    for tag in session.scalars(select(ReviewTag)):
+        tag.tag_version, tag.overall_sentiment = 1, None
+    session.commit()
+    from app.analysis.aggregate import Filters, theme_stats
+
+    stats = theme_stats(session, seeded.id, approved_codebook(session, seeded.id).id, [], Filters(app_id=APP))
+    assert (stats["counts"]["analyzed"], stats["counts"]["pending"]) == (0, 54)
+    run = estimate_analysis(session, settings, llm, seeded, APP)
+    assert run.reviews_in_scope == 54
+    confirm(session, run)
+    run_until_done(session_factory, settings, llm)
+    assert session.scalar(select(func.count()).select_from(ReviewTag).where(ReviewTag.tag_version == 2)) == 54
+    assert session.scalar(select(func.count()).select_from(ReviewTag)) == 108  # old tags kept for history
 
 
 def test_new_codebook_version_means_retagging(session, session_factory, settings, llm, seeded):

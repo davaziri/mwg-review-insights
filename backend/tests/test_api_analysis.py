@@ -71,6 +71,16 @@ def test_analysis_flow_through_the_api(api, session, session_factory, settings, 
         for m in r["mentions"]:
             if m["quote_status"] == "ok":
                 assert r["text"][m["quote_start"] : m["quote_end"]].strip()
+        o = r["overall"]
+        assert o["sentiment"] in ("positive", "negative", "mixed", "none")
+        if o["quote_status"] == "ok":
+            assert r["text"][o["quote_start"] : o["quote_end"]].strip()
+    assert stats["overall"]["positive"]["count"] == 9
+
+    # Drill-down by overall impression.
+    positive = api.get("/api/titles/1/reviews/tagged", params={"overall": "positive"}).json()
+    assert positive["total"] == 9 and all(r["overall"]["sentiment"] == "positive" for r in positive["reviews"])
+    assert api.get("/api/titles/1/reviews/tagged", params={"overall": "none"}).json()["total"] == 27
 
     # Drill-down: one theme, one sentiment.
     neg_combat = api.get("/api/titles/1/reviews/tagged", params={"theme": "combat_feel", "sentiment": "negative"}).json()

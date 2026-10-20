@@ -106,7 +106,7 @@ Enforced with structured outputs (`output_config.format`). `theme_id` is an enum
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["review_id", "mentions", "other_flag", "other_note", "gist_en"],
+        "required": ["review_id", "mentions", "overall", "other_flag", "other_note", "gist_en"],
         "properties": {
           "review_id": { "type": "string" },
           "mentions": {
@@ -120,6 +120,15 @@ Enforced with structured outputs (`output_config.format`). `theme_id` is an enum
                 "sentiment": { "type": "string", "enum": ["positive", "negative", "mixed"] },
                 "quote":     { "type": "string" }
               }
+            }
+          },
+          "overall": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sentiment", "quote"],
+            "properties": {
+              "sentiment": { "type": "string", "enum": ["positive", "negative", "mixed", "none"] },
+              "quote":     { "type": "string" }
             }
           },
           "other_flag": { "type": "boolean" },
@@ -148,6 +157,7 @@ Enforced with structured outputs (`output_config.format`). `theme_id` is an enum
 6. Theme discovery needs at least about 30 reviews with real text.
 7. GodsTV's demo app is synced separately and never mixed into the main title's numbers.
 8. Verbatim quotes keep their em dashes. Everything the app generates has none.
+9. Added after the first spot check: every review also gets an overall impression of the game as a whole, with its own verbatim quote. General praise ("very nice", "amazing game") goes there instead of being forced into a theme, and it is counted apart from the themes. Tags carry a tag version (now 2), so tags made before this were redone on the next run.
 
 ## Approved extra dependencies
 

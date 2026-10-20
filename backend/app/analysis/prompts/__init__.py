@@ -7,7 +7,7 @@ from functools import cache
 from pathlib import Path
 from string import Template
 
-PROMPT_VERSION = "2026-10-20.2"
+PROMPT_VERSION = "2026-10-20.3"
 _DIR = Path(__file__).parent
 
 
@@ -58,10 +58,12 @@ DISCOVERY_SCHEMA = _obj(
 def tagging_schema(theme_keys: list[str]) -> dict:
     """The tagging answer for a group of reviews. theme_id is limited to the codebook's keys."""
     mention = _obj({"theme_id": {"type": "string", "enum": sorted(theme_keys)}, "sentiment": SENTIMENT, "quote": _STR})
+    overall = _obj({"sentiment": {"type": "string", "enum": ["positive", "negative", "mixed", "none"]}, "quote": _STR})
     review = _obj(
         {
             "review_id": _STR,
             "mentions": {"type": "array", "items": mention},
+            "overall": overall,
             "other_flag": {"type": "boolean"},
             "other_note": _STR,
             "gist_en": _STR,

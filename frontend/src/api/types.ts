@@ -166,6 +166,8 @@ export interface QAResults {
     mean_kappa: number | null;
     sentiment_agreement: number | null;
   };
+  /** Missing on runs made before the overall impression existed. */
+  overall_impression?: { reviews: number; agreement: number | null; differences: Record<string, number> };
 }
 
 export interface AnalysisRun {
@@ -231,11 +233,16 @@ export interface ThemeStat extends ThemeCell {
   monthly: (ThemeCell & { month: string })[];
 }
 
+export type OverallSentiment = "positive" | "mixed" | "negative" | "none";
+
+export type OverallSplit = Record<OverallSentiment, { count: number; share: number }>;
+
 export interface ThemeStats {
   counts: { reviews: number; with_content: number; no_content: number; analyzed: number; pending: number; positive_votes: number };
   themes: ThemeStat[];
   developer_response: { responded: number; rate: number; median_hours: number | null };
   other: { count: number; share: number };
+  overall: OverallSplit;
   codebook: { id: number; version: number } | null;
 }
 
@@ -267,6 +274,12 @@ export interface TaggedReview {
   other_flag: boolean;
   other_note: string | null;
   model: string;
+  overall: {
+    sentiment: OverallSentiment;
+    quote_start: number | null;
+    quote_end: number | null;
+    quote_status: "ok" | "dropped" | "none";
+  };
   mentions: Mention[];
 }
 

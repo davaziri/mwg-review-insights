@@ -1,24 +1,33 @@
 import { useState } from "react";
 
 import type { Mention, TaggedReview } from "../../api/types";
-import { Badge, SENTIMENT_STYLE } from "../ui";
+import { Badge, OVERALL_STYLE, OVERALL_WORD, SENTIMENT_STYLE } from "../ui";
 
-type Segment = { text: string; marks: Mention[] };
+type Span = { start: number; end: number };
+type Segment = { text: string; marks: Mention[]; overall: boolean };
 
 /** Split the review text into runs, each covered by the same set of verified quotes. */
-function segments(text: string, mentions: Mention[]): Segment[] {
+function segments(text: string, mentions: Mention[], overall: Span | null): Segment[] {
   const spans = mentions.filter((m) => m.quote_status === "ok" && m.quote_start !== null && m.quote_end !== null);
   const cuts = new Set<number>([0, text.length]);
   spans.forEach((m) => {
     cuts.add(m.quote_start!);
     cuts.add(m.quote_end!);
   });
+  if (overall) {
+    cuts.add(overall.start);
+    cuts.add(overall.end);
+  }
   const points = [...cuts].sort((a, b) => a - b);
   const out: Segment[] = [];
   for (let i = 0; i < points.length - 1; i++) {
     const [a, b] = [points[i], points[i + 1]];
     if (a === b) continue;
-    out.push({ text: text.slice(a, b), marks: spans.filter((m) => m.quote_start! <= a && m.quote_end! >= b) });
+    out.push({
+      text: text.slice(a, b),
+      marks: spans.filter((m) => m.quote_start! <= a && m.quote_end! >= b),
+      overall: overall !== null && overall.start <= a && overall.end >= b,
+    });
   }
   return out;
 }
@@ -28,7 +37,9 @@ const SENTIMENT_WORD = { positive: "positive", negative: "negative", mixed: "mix
 const LONG_REVIEW = 1200;
 
 export function ReviewCard({ review }: { review: TaggedReview }) {
-  const parts = segments(review.text, review.mentions);
+  const o = review.overall;
+  const overallSpan = o.quote_status === "ok" && o.quote_start !== null && o.quote_end !== null ? { start: o.quote_start, end: o.quote_end } : null;
+  const parts = segments(review.text, review.mentions, overallSpan);
   const long = review.text.length > LONG_REVIEW || review.text.split("\n").length > 16;
   const [expanded, setExpanded] = useState(false);
   return (
@@ -46,19 +57,20 @@ export function ReviewCard({ review }: { review: TaggedReview }) {
       </header>
 
       <p className={`whitespace-pre-wrap text-sm leading-relaxed text-slate-800 ${long && !expanded ? "max-h-64 overflow-hidden" : ""}`}>
-        {parts.map((p, i) =>
-          p.marks.length ? (
-            <mark
-              key={i}
-              className={`rounded-sm px-0.5 underline decoration-2 underline-offset-2 ${SENTIMENT_STYLE[p.marks[0].sentiment].mark}`}
-              title={p.marks.map((m) => `${m.theme_name} (${SENTIMENT_WORD[m.sentiment]})`).join(", ")}
-            >
+        {parts.map((p, i) => {
+          if (!p.marks.length && !p.overall) return <span key={i}>{p.text}</span>;
+          const themeClass = p.marks.length ? `underline decoration-2 underline-offset-2 ${SENTIMENT_STYLE[p.marks[0].sentiment].mark}` : "";
+          const overallClass = p.overall ? `font-semibold ring-1 box-decoration-clone ${OVERALL_STYLE[o.sentiment].outline}` : "";
+          const label = [
+            ...(p.overall ? [`Overall impression (${OVERALL_WORD[o.sentiment]})`] : []),
+            ...p.marks.map((m) => `${m.theme_name} (${SENTIMENT_WORD[m.sentiment]})`),
+          ].join(", ");
+          return (
+            <mark key={i} className={`rounded-sm bg-transparent px-0.5 text-inherit ${themeClass} ${overallClass}`} title={label}>
               {p.text}
             </mark>
-          ) : (
-            <span key={i}>{p.text}</span>
-          ),
-        )}
+          );
+        })}
       </p>
       {long && (
         <button type="button" className="mt-1 text-xs font-medium text-brand hover:underline" onClick={() => setExpanded(!expanded)}>
@@ -72,7 +84,19 @@ export function ReviewCard({ review }: { review: TaggedReview }) {
         </p>
       )}
 
-      <footer className="mt-3 flex flex-wrap gap-1.5">
+      <footer className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span
+          className={`rounded border px-1.5 py-0.5 text-xs font-medium ${OVERALL_STYLE[o.sentiment].chip}`}
+          title={
+            o.quote_status === "dropped"
+              ? "The model's quote did not match the review text, so it is not shown."
+              : "The reviewer's view of the game as a whole. Counted separately from the themes."
+          }
+        >
+          Overall: {OVERALL_WORD[o.sentiment]}
+          {o.sentiment !== "none" && o.quote_status !== "ok" && <span className="opacity-80"> (no quote)</span>}
+        </span>
+        <span className="mx-1 h-4 w-px bg-slate-200" aria-hidden />
         {review.mentions.length === 0 && <span className="text-xs text-slate-500">No themes tagged</span>}
         {review.mentions.map((m) => (
           <span

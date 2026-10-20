@@ -61,19 +61,19 @@ Open a title from the Titles page (**Themes**).
 
 1. **Find themes.** The analysis model (`MODEL_ANALYSIS`) reads a stratified sample of up to 400 reviews (positive and negative, playtime bands, early access and full release, languages) and proposes 8 to 15 themes, each with a definition, include and exclude notes, and two example reviews. This is saved as a draft codebook.
 2. **Review the codebook.** Rename, merge, split, add or delete themes with **Edit themes**. Saving creates a new version; versions never change once saved. **Approve** the version you want used.
-3. **Analyze reviews.** The tagging model (`MODEL_TAGGING`) reads every review that has text and no tag for its current version under the approved codebook, 20 reviews per request. For each review it returns the themes mentioned, sentiment per theme, a short quote per theme, an "other" flag for points no theme covers, and an English gist for non-English reviews. Then the analysis model re-tags a random 5% (at least 20 reviews) as a quality check, and writes an executive summary citing review IDs.
+3. **Analyze reviews.** The tagging model (`MODEL_TAGGING`) reads every review that has text and no tag for its current version under the approved codebook, 20 reviews per request. For each review it returns the themes mentioned, sentiment per theme, a short quote per theme, the reviewer's **overall impression** of the game (positive, mixed, negative, or none) with its own quote, an "other" flag for points no theme covers, and an English gist for non-English reviews. General praise or criticism ("great game", "waste of money") goes into the overall impression, not into a theme, and is counted separately so theme numbers stay about specific topics. Then the analysis model re-tags a random 5% (at least 20 reviews) as a quality check, and writes an executive summary citing review IDs.
 
 Every run starts as a **cost estimate** (input tokens counted by Anthropic's token counter, output estimated) and only runs after you confirm it. Actual tokens and cost are logged per run on the **Analysis quality** page. Runs with 100 or more reviews go through the Batches API at half price; smaller ones call the API directly.
 
 Rules the pipeline enforces in code:
 
 - **Quotes are verbatim.** Each quote must be found in the review's own text (exact match, or one that differs only in whitespace or letter case). The app stores the position and always shows the review's own text there. Quotes that fail are dropped and counted on the quality page.
-- **Unchanged reviews are never re-tagged.** A review is re-tagged only when Steam's `timestamp_updated` changes, or when a new codebook version is approved.
+- **Unchanged reviews are never re-tagged.** A review is re-tagged only when Steam's `timestamp_updated` changes, when a new codebook version is approved, or when the app starts recording something new per review (the tag version, currently 2, changes in an update).
 - **No em dashes** in anything generated (theme text, gists, notes, summaries). Reviewers' own quotes are left as written.
 - If more than 10% of analyzed reviews raise points no theme covers, the codebook is flagged for review.
 - Reviews with almost no text ("good", "10/10", emoji) are stored as "no content" and counted, but not sent to the model.
 
-The **Spot check** on a title's page shows 20 random tagged reviews with their quotes highlighted, to check the tags by eye.
+The **Spot check** on a title's page shows 20 random tagged reviews with their quotes highlighted, to check the tags by eye. The overall impression quote is shown in bold with an outline.
 
 ## Adding a title
 
