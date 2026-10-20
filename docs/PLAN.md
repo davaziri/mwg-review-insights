@@ -53,7 +53,7 @@ JSON columns use SQLAlchemy's generic JSON type so a move to Postgres needs no r
 ```
 titles
   id · steam_app_id UNIQUE · demo_app_id NULL · name
-  status (released | early_access | coming_soon | unreleased) · is_active · archived_at NULL
+  status (released | early_access | coming_soon | unreleased) · notes · archived_at NULL
   header_image_url · release_date NULL · release_date_text · developers JSON · publishers JSON
   appdetails_json JSON · appdetails_fetched_at · created_at · updated_at
 

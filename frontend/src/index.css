@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-brand: var(--brand-primary);
+  --color-brand-hover: var(--brand-primary-hover);
+  --color-on-brand: var(--brand-on-primary);
+  --color-positive: var(--brand-positive);
+  --color-negative: var(--brand-negative);
+  --color-mixed: var(--brand-mixed);
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}

@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    image: mwg-review-insights
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    image: mwg-review-insights
+    command: ["python", "-m", "app.cli", "worker"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./data:/data
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
