@@ -90,7 +90,7 @@ See [.env.example](.env.example). The main ones:
 | `SYNC_TIMEZONE` | `America/Chicago` | Timezone for `SYNC_CRON` |
 | `FULL_SYNC_INTERVAL_DAYS` | `7` | Days between full crawls (deletion checks) |
 | `DATABASE_URL` | `sqlite:///data/mwg.db` | Database location |
-| `ANTHROPIC_API_KEY` | empty | Needed for analysis |
+| `ANTHROPIC_API_KEY` (or `MWG_ANTHROPIC_API_KEY`) | empty | Needed for analysis. In Claude Code cloud sessions use `MWG_ANTHROPIC_API_KEY` |
 | `MODEL_TAGGING`, `MODEL_ANALYSIS` | `claude-haiku-5-5`, `claude-sonnet-5-5` | Tagging model and analysis model |
 | `TAGGING_EFFORT`, `ANALYSIS_EFFORT` | `low`, `high` | How much each model reasons before answering |
 | `DIRECT_MAX_REVIEWS` | `100` | Runs with at least this many reviews use the Batches API |

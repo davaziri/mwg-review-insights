@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
         env_file=(REPO_ROOT / ".env", ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     database_url: str = f"sqlite:///{DEFAULT_DB_PATH}"
@@ -51,8 +53,11 @@ class Settings(BaseSettings):
     sync_timezone: str = "America/Chicago"
     worker_poll_seconds: float = 5.0
 
-    # Anthropic
-    anthropic_api_key: str | None = None
+    # Anthropic. MWG_ANTHROPIC_API_KEY is checked first: in Claude Code cloud sessions the
+    # ANTHROPIC_API_KEY name may not reach commands, so the app's own name is the reliable one there.
+    anthropic_api_key: str | None = Field(
+        default=None, validation_alias=AliasChoices("MWG_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
+    )
     # Set explicitly so an ANTHROPIC_BASE_URL meant for other tools never redirects the app.
     anthropic_api_base: str = "https://api.anthropic.com"
     model_tagging: str = "claude-haiku-5-5"
