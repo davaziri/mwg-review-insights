@@ -3,9 +3,15 @@ from alembic import context
 from app.config import get_settings
 from app.db import create_db_engine
 from app.models import Base
+from app.search import is_search_table
 
 config = context.config
 target_metadata = Base.metadata
+
+
+def _include_name(name, type_, parent_names) -> bool:
+    # The review search index is created by hand (SQLite FTS5), not from the models.
+    return not (type_ == "table" and is_search_table(name))
 
 
 def _url() -> str:
@@ -19,6 +25,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         render_as_batch=True,
+        include_name=_include_name,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -32,6 +39,7 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             # Batch mode lets ALTER-style migrations work on SQLite.
             render_as_batch=True,
+            include_name=_include_name,
         )
         with context.begin_transaction():
             context.run_migrations()

@@ -7,6 +7,7 @@ from app.config import Settings
 from app.db import create_db_engine, get_session
 from app.main import create_app
 from app.models import Base, Title
+from app.search import install_search_index
 from app.seed import seed_titles
 from app.steam.client import APPDETAILS_URL, REVIEWS_URL, SteamClient
 from tests.fakes import FakeSteam
@@ -27,6 +28,8 @@ def settings(tmp_path) -> Settings:
 def engine(settings):
     engine = create_db_engine(settings.database_url)
     Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        install_search_index(conn)
     yield engine
     engine.dispose()
 

@@ -1,7 +1,6 @@
 """Analysis API: codebooks, cost estimates and runs, theme stats, tagged reviews, summary, quality."""
 
 import random
-from datetime import UTC, date, datetime
 from functools import lru_cache
 from typing import Literal
 
@@ -16,6 +15,7 @@ from app.analysis.llm import AnthropicLLM, LLMClient, LLMNotConfigured
 from app.analysis.prep import PLAYTIME_BAND_LABELS
 from app.analysis.runs import RunError, active_run, cancel, confirm, estimate_analysis, estimate_discovery
 from app.analysis.tagging import pending_reviews
+from app.api.common import filters_dep, resolve_app, review_brief, serialize_reviews, title_or_404
 from app.config import get_settings
 from app.db import get_session
 from app.models import AnalysisRun, Codebook, Review, ReviewTag, Summary, Theme, ThemeMention, Title
@@ -36,29 +36,6 @@ def get_llm() -> LLMClient:
 
 
 # Helpers
-
-
-def _title(session: Session, title_id: int) -> Title:
-    title = session.get(Title, title_id)
-    if title is None:
-        raise HTTPException(404, "Title not found")
-    return title
-
-
-def _app(title: Title, app_id: int | None) -> int:
-    if app_id is None:
-        return title.steam_app_id
-    if app_id not in title.app_ids:
-        raise HTTPException(400, f"App {app_id} does not belong to {title.name}")
-    return app_id
-
-
-def review_url(review: Review) -> str:
-    return f"https://steamcommunity.com/profiles/{review.author_steamid}/recommended/{review.app_id}/"
-
-
-def _date(ts: int | None) -> str | None:
-    return datetime.fromtimestamp(ts, UTC).date().isoformat() if ts else None
 
 
 def theme_out(t: Theme) -> dict:
@@ -136,18 +113,6 @@ def run_out(run: AnalysisRun) -> dict:
     }
 
 
-def _review_brief(review: Review, max_chars: int = 400) -> dict:
-    text = review.display_text or ""
-    return {
-        "recommendation_id": review.recommendation_id,
-        "excerpt": text if len(text) <= max_chars else text[:max_chars].rstrip() + "...",
-        "voted_up": review.voted_up,
-        "language": review.language,
-        "date": _date(review.timestamp_created),
-        "url": review_url(review),
-    }
-
-
 def _reviews_by_rec_id(session: Session, title_id: int, rec_ids: list[str]) -> dict[str, Review]:
     if not rec_ids:
         return {}
@@ -162,8 +127,8 @@ def _reviews_by_rec_id(session: Session, title_id: int, rec_ids: list[str]) -> d
 
 @router.get("/titles/{title_id}/analysis")
 def analysis_overview(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
-    title = _title(session, title_id)
-    app = _app(title, app_id)
+    title = title_or_404(session, title_id)
+    app = resolve_app(title, app_id)
     approved = approved_codebook(session, title.id)
     latest = session.scalar(select(Codebook).where(Codebook.title_id == title.id).order_by(Codebook.version.desc()).limit(1))
     counts = dict(
@@ -220,7 +185,7 @@ class CodebookIn(BaseModel):
 
 @router.get("/titles/{title_id}/codebooks")
 def list_codebooks(title_id: int, session: Session = Depends(get_session)):
-    _title(session, title_id)
+    title_or_404(session, title_id)
     books = session.scalars(select(Codebook).where(Codebook.title_id == title_id).order_by(Codebook.version.desc()))
     return [codebook_out(session, cb, with_themes=False) for cb in books]
 
@@ -233,14 +198,14 @@ def get_codebook(codebook_id: int, session: Session = Depends(get_session)):
     out = codebook_out(session, cb)
     example_ids = sorted({i for t in out["themes"] for i in t["example_review_ids"]})
     reviews = _reviews_by_rec_id(session, cb.title_id, example_ids)
-    out["examples"] = {rid: _review_brief(r) for rid, r in reviews.items()}
+    out["examples"] = {rid: review_brief(r) for rid, r in reviews.items()}
     return out
 
 
 @router.post("/titles/{title_id}/codebooks", status_code=201)
 def save_codebook(title_id: int, body: CodebookIn, session: Session = Depends(get_session)):
     """Save edits as a new version (versions never change after saving)."""
-    _title(session, title_id)
+    title_or_404(session, title_id)
     try:
         cb = create_version(
             session,
@@ -281,8 +246,8 @@ def create_estimate(
     title_id: int, body: EstimateIn, session: Session = Depends(get_session), llm: LLMClient = Depends(get_llm)
 ):
     """Price a run before anything is spent. Nothing runs until the estimate is confirmed."""
-    title = _title(session, title_id)
-    app = _app(title, body.app_id)
+    title = title_or_404(session, title_id)
+    app = resolve_app(title, body.app_id)
     settings = get_settings()
     try:
         if body.kind == "discovery":
@@ -341,34 +306,10 @@ def list_runs(title_id: int | None = None, limit: int = Query(50, ge=1, le=500),
 # Stats and reviews
 
 
-def _filters(
-    app_id: int | None = None,
-    date_from: date | None = None,
-    date_to: date | None = None,
-    vote: Literal["positive", "negative"] | None = None,
-    playtime: list[str] = Query(default=[]),
-    language: list[str] = Query(default=[]),
-    early_access: bool | None = None,
-    steam_deck: bool | None = None,
-    has_dev_response: bool | None = None,
-) -> Filters:
-    return Filters(
-        app_id=app_id,
-        date_from=date_from,
-        date_to=date_to,
-        voted_up=None if vote is None else vote == "positive",
-        playtime_bands=playtime,
-        languages=language,
-        early_access=early_access,
-        steam_deck=steam_deck,
-        has_dev_response=has_dev_response,
-    )
-
-
 @router.get("/titles/{title_id}/themes/stats")
-def stats(title_id: int, f: Filters = Depends(_filters), session: Session = Depends(get_session)):
-    title = _title(session, title_id)
-    f.app_id = _app(title, f.app_id)
+def stats(title_id: int, f: Filters = Depends(filters_dep), session: Session = Depends(get_session)):
+    title = title_or_404(session, title_id)
+    f.app_id = resolve_app(title, f.app_id)
     cb = approved_codebook(session, title.id)
     themes = themes_for(session, cb.id) if cb else []
     out = theme_stats(session, title.id, cb.id if cb else None, themes, f)
@@ -380,7 +321,7 @@ def stats(title_id: int, f: Filters = Depends(_filters), session: Session = Depe
 @router.get("/titles/{title_id}/reviews/tagged")
 def tagged_reviews(
     title_id: int,
-    f: Filters = Depends(_filters),
+    f: Filters = Depends(filters_dep),
     theme: str | None = None,
     sentiment: Literal["positive", "negative", "mixed"] | None = None,
     overall: Literal["positive", "negative", "mixed", "none"] | None = None,
@@ -392,8 +333,8 @@ def tagged_reviews(
     """Analyzed reviews with their themes and verified quotes. random=N gives a fresh random sample
     (the spot check); otherwise newest first, optionally limited to one theme and sentiment, or to
     one overall impression."""
-    title = _title(session, title_id)
-    f.app_id = _app(title, f.app_id)
+    title = title_or_404(session, title_id)
+    f.app_id = resolve_app(title, f.app_id)
     cb = approved_codebook(session, title.id)
     if cb is None:
         return {"total": 0, "reviews": []}
@@ -420,62 +361,14 @@ def tagged_reviews(
     else:
         pairs = pairs[(page - 1) * page_size : page * page_size]
 
-    reviews = {r.id: r for r in session.scalars(select(Review).where(Review.id.in_([p[0] for p in pairs] or [-1])))}
-    tags = {t.id: t for t in session.scalars(select(ReviewTag).where(ReviewTag.id.in_([p[1] for p in pairs] or [-1])))}
-    mentions: dict[int, list[ThemeMention]] = {}
-    for m in session.scalars(select(ThemeMention).where(ThemeMention.review_tag_id.in_(list(tags) or [-1]))):
-        mentions.setdefault(m.review_tag_id, []).append(m)
-
-    out = []
-    for review_id, tag_id in pairs:
-        r, tag = reviews[review_id], tags[tag_id]
-        out.append(
-            {
-                "id": r.id,
-                "recommendation_id": r.recommendation_id,
-                "app_id": r.app_id,
-                "text": r.display_text,
-                "voted_up": r.voted_up,
-                "language": r.language,
-                "date": _date(r.timestamp_created),
-                "playtime_at_review_hours": round(r.author_playtime_at_review / 60, 1) if r.author_playtime_at_review is not None else None,
-                "playtime_band": r.playtime_band,
-                "early_access": r.written_during_early_access,
-                "steam_deck": r.primarily_steam_deck,
-                "votes_up": r.votes_up,
-                "developer_response": r.developer_response,
-                "url": review_url(r),
-                "gist_en": tag.gist_en,
-                "other_flag": tag.other_flag,
-                "other_note": tag.other_note,
-                "model": tag.model,
-                "overall": {
-                    "sentiment": tag.overall_sentiment or "none",
-                    "quote_start": tag.overall_quote_start,
-                    "quote_end": tag.overall_quote_end,
-                    "quote_status": tag.overall_quote_status or "none",
-                },
-                "mentions": [
-                    {
-                        "theme_key": themes[m.theme_id].key,
-                        "theme_name": themes[m.theme_id].name,
-                        "sentiment": m.sentiment,
-                        "quote_start": m.quote_start,
-                        "quote_end": m.quote_end,
-                        "quote_status": m.quote_status,
-                    }
-                    for m in sorted(mentions.get(tag.id, []), key=lambda m: (m.quote_start is None, m.quote_start or 0))
-                    if m.theme_id in themes
-                ],
-            }
-        )
+    out = serialize_reviews(session, [(p[0], p[1]) for p in pairs], themes)
     return {"total": total, "reviews": out, "codebook": {"id": cb.id, "version": cb.version}}
 
 
 @router.get("/titles/{title_id}/summary")
 def latest_summary(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
-    title = _title(session, title_id)
-    app = _app(title, app_id)
+    title = title_or_404(session, title_id)
+    app = resolve_app(title, app_id)
     s = session.scalar(
         select(Summary).where(Summary.title_id == title.id, Summary.app_id == app).order_by(Summary.id.desc()).limit(1)
     )
@@ -491,15 +384,15 @@ def latest_summary(title_id: int, app_id: int | None = None, session: Session = 
         "created_at": s.created_at,
         "codebook_id": s.codebook_id,
         "content": content,
-        "cited_reviews": {rid: _review_brief(r, 300) for rid, r in reviews.items()},
+        "cited_reviews": {rid: review_brief(r, 300) for rid, r in reviews.items()},
     }
 
 
 @router.get("/titles/{title_id}/quality")
 def quality(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
     """Everything the Analysis quality page shows for one title."""
-    title = _title(session, title_id)
-    app = _app(title, app_id)
+    title = title_or_404(session, title_id)
+    app = resolve_app(title, app_id)
     cb = approved_codebook(session, title.id)
     qa_run = session.scalar(
         select(AnalysisRun)
@@ -533,7 +426,7 @@ def quality(title_id: int, app_id: int | None = None, session: Session = Depends
             quotes[status] = quotes.get(status, 0) + 1
         flagged = [(r, t) for r, t in rows if t.other_flag]
         flagged.sort(key=lambda x: -(x[0].timestamp_created or 0))
-        other_notes = [{"note": t.other_note, **_review_brief(r, 200)} for r, t in flagged[:50]]
+        other_notes = [{"note": t.other_note, **review_brief(r, 200)} for r, t in flagged[:50]]
         other_count = len(flagged)
     else:
         other_count = 0
