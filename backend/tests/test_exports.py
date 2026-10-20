@@ -130,8 +130,16 @@ def test_portfolio_report_html(analyzed, session, settings):
 
 
 def _chromium(settings) -> str | None:
-    path = os.environ.get("CHROMIUM_PATH") or ("/opt/pw-browsers/chromium" if Path("/opt/pw-browsers/chromium").exists() else None)
-    return path
+    """A Chromium to print with: CHROMIUM_PATH, a preinstalled one, or the one `playwright install` added."""
+    if os.environ.get("CHROMIUM_PATH"):
+        return os.environ["CHROMIUM_PATH"]
+    if Path("/opt/pw-browsers/chromium").exists():
+        return "/opt/pw-browsers/chromium"
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        path = p.chromium.executable_path
+    return path if Path(path).exists() else None
 
 
 def test_pdf_downloads(analyzed, settings):

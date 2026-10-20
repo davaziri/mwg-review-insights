@@ -7,8 +7,10 @@ services:
     env_file:
       - path: .env
         required: false
+    # Only reachable from this machine. On a server, a web server such as Caddy in front of it
+    # handles HTTPS (see the README's deployment section).
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./data:/data
     healthcheck:
