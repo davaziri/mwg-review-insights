@@ -209,3 +209,18 @@ Phase 3 notes (decided while building):
 - Dark mode uses named color tokens (surface, ink, muted, line, positive-soft and so on) defined in brand.ts for both modes, instead of fixed Tailwind palette colors.
 - Chart colors were checked with a color-vision validator. Green against red failed for color-blind readers, so positive is a teal-green and negative a brick red; in dark mode the pair is just under the target, so the volume chart separates them by position too (recommended above the line, not recommended below). The compare view's 4 title colors are a validated set.
 - Recharts 3.10.1 (and its react-is peer) added, as listed in the brief's stack.
+
+Tombwater analysis (October 20, 2026), so the compare view could be checked on real data:
+
+- Theme discovery $0.15 (15 themes, approved as proposed on the user's instruction to analyze Tombwater), analysis $0.13 (299 reviews tagged; quality check: theme agreement 95%, kappa 0.76, sentiment 92%, overall impression 90%; 1,160 of 1,169 quotes verified).
+- Theme matching Duck Paradox and Tombwater: $0.01, 8 shared themes (difficulty, controls, bugs and performance, level and boss design, story, art and sound, price and value, builds and upgrades).
+- Total spent on live runs so far: $0.72 of the $1 approved.
+
+Phase 4 notes (decided while building):
+
+- PDF reports are HTML built in Python (no template engine, to avoid a new dependency) and printed by Chromium through Playwright, pinned to 1.63. Charts in reports are hand-drawn SVG. The report page may only load Steam header images; every other request is refused.
+- Branding moved to frontend/src/theme/brand.json so the web app and the reports share one file. The Docker image copies it and the logo next to the backend.
+- Report quotes: verified quotes for the theme and sentiment within the filters, English first, then most helpful. Each is checked against the review text again when the report is made, and links to the review. Non-English quotes carry the English gist, labeled as machine-written.
+- The executive summary in reports covers all reviews (it is written per analysis run), and the report says so when filters are set.
+- Spreadsheet safety: no formulas anywhere; review text that starts like a formula is stored as text (XLSX text cells, CSV leading apostrophe).
+- Copy as image draws the chart's SVG with its title and legend onto a canvas at 2x and puts it on the clipboard, or saves a file where the browser doesn't allow clipboard images.

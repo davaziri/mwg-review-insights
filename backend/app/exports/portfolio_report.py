@@ -30,7 +30,7 @@ def _trend_text(t: dict) -> str:
     last, prev = t["last"], t["previous"]
     if not last["reviews"]:
         return "No reviews"
-    text = f"{last['reviews']} reviews, {last['positive_share'] * 100:.0f}% recommended"
+    text = f"{last['reviews']} {'review' if last['reviews'] == 1 else 'reviews'}, {int(last['positive_share'] * 100)}% recommended"
     if prev["reviews"] and prev["positive_share"] is not None:
         delta = round((last["positive_share"] - prev["positive_share"]) * 100)
         if delta:
