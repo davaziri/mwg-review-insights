@@ -1,5 +1,5 @@
-"""Background worker: runs queued syncs, advances confirmed analysis runs, and queues the
-nightly sync for every active title.
+"""Background worker: runs queued syncs, advances confirmed analysis runs, queues the nightly
+sync for every active title, starts nightly analysis where it is switched on, and sends alerts.
 
 The worker is the only process that crawls Steam reviews, and it runs one sync at a time, so
 the client's request throttle holds across all titles.
@@ -16,7 +16,8 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.analysis.llm import AnthropicLLM, LLMClient
+from app.analysis.llm import AnthropicLLM, LLMClient, LLMNotConfigured
+from app.analysis.nightly import nightly_analysis
 from app.analysis.runs import process_analysis
 from app.config import Settings, get_settings
 from app.models import SyncRun, Title
@@ -88,6 +89,16 @@ def main() -> None:
             runs = enqueue_all_active(session, settings)
         log.info("Nightly sync: queued %s run(s)", len(runs))
 
+    def nightly_analysis_job() -> None:
+        try:
+            llm = llm_factory()
+        except LLMNotConfigured:
+            log.warning("Nightly analysis skipped: no Anthropic API key")
+            return
+        with SessionLocal() as session:
+            for line in nightly_analysis(session, settings, llm):
+                log.info("Nightly analysis: %s", line)
+
     llm: list[LLMClient] = []
 
     def llm_factory() -> LLMClient:
@@ -105,11 +116,20 @@ def main() -> None:
         misfire_grace_time=3600,
         coalesce=True,
     )
+    scheduler.add_job(
+        nightly_analysis_job,
+        CronTrigger.from_crontab(settings.analysis_cron, timezone=settings.sync_timezone),
+        id="nightly-analysis",
+        misfire_grace_time=3600,
+        coalesce=True,
+    )
     # docker stop sends SIGTERM; exit through `finally` so the scheduler and client shut down.
     # A run cut off mid-crawl stays 'running' and is re-queued from its cursor on the next start.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     scheduler.start()
-    log.info("Worker started. Nightly sync at '%s' (%s)", settings.sync_cron, settings.sync_timezone)
+    log.info(
+        "Worker started. Nightly sync at '%s', nightly analysis at '%s' (%s)", settings.sync_cron, settings.analysis_cron, settings.sync_timezone
+    )
     try:
         while True:
             process_queue(SessionLocal, settings, client)

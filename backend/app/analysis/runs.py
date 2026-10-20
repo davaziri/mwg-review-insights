@@ -199,8 +199,20 @@ def estimate_discovery(
 
 
 def estimate_analysis(
-    session: Session, settings: Settings, llm: LLMClient, title: Title, app_id: int, requested_by: str | None = None
+    session: Session,
+    settings: Settings,
+    llm: LLMClient,
+    title: Title,
+    app_id: int,
+    requested_by: str | None = None,
+    *,
+    qa: bool = True,
+    summary: bool = True,
+    trigger: str = "manual",
 ) -> AnalysisRun:
+    """Price tagging every pending review, the quality check and the summary. Nightly runs leave
+    out the quality check when there are only a few new reviews (it needs a sample to mean
+    anything) and the summary when it was rewritten recently."""
     _check_app(title, app_id)
     codebook = approved_codebook(session, title.id)
     if codebook is None:
@@ -228,7 +240,7 @@ def estimate_analysis(
         _step("tagging", settings.model_tagging, tag_requests, tag_input, n * per_review, batch=batch, settings=settings, reviews=n)
     )
 
-    qa_n = qa_count(n, settings)
+    qa_n = qa_count(n, settings) if qa else 0
     qa_ids = choose_qa_sample([r.id for r in pending], qa_n, seed=random.randrange(1 << 30)) if qa_n else []
     if qa_n:
         qa_reviews = [r for r in pending if r.id in set(qa_ids)]
@@ -250,20 +262,25 @@ def estimate_analysis(
                 reviews=qa_n,
             )
         )
-    steps.append(
-        _step(
-            "summary",
-            settings.model_analysis,
-            1,
-            summary_step.SUMMARY_INPUT_ESTIMATE,
-            summary_step.SUMMARY_OUTPUT_ESTIMATE,
-            batch=False,
-            settings=settings,
+    if summary:
+        steps.append(
+            _step(
+                "summary",
+                settings.model_analysis,
+                1,
+                summary_step.SUMMARY_INPUT_ESTIMATE,
+                summary_step.SUMMARY_OUTPUT_ESTIMATE,
+                batch=False,
+                settings=settings,
+            )
         )
-    )
 
     if n == 0:
         notes.append("Every review is already tagged under this codebook, so only the summary would be rewritten.")
+    if n and not qa_n:
+        notes.append("No quality check: too few new reviews for a meaningful sample. The last full check still applies.")
+    if not summary:
+        notes.append("The executive summary is not rewritten this time (it was rewritten recently).")
     else:
         notes.append(
             f"Tags {n} reviews that have no tag for their current text under codebook v{codebook.version}. "
@@ -283,9 +300,16 @@ def estimate_analysis(
         kind="analysis",
         status="estimated",
         mode="batch" if batch else "direct",
+        trigger=trigger,
         requested_by=requested_by,
         reviews_in_scope=n,
-        details={"review_ids": [r.id for r in pending], "qa_review_ids": qa_ids, "prompt_version": PROMPT_VERSION},
+        details={
+            "review_ids": [r.id for r in pending],
+            "qa_review_ids": qa_ids,
+            "prompt_version": PROMPT_VERSION,
+            "skip_qa": not qa_n,
+            "skip_summary": not summary,
+        },
     )
     _apply_estimate(run, steps, notes)
     session.add(run)
@@ -588,12 +612,14 @@ def advance(session: Session, settings: Settings, llm: LLMClient, run: AnalysisR
             _check_other_rate(session, settings, run, codebook)
             run.step = "qa"
             session.commit()
+        details = run.details or {}
         if run.step == "qa":
-            if not _qa(session, settings, llm, run, title, codebook, themes):
+            # Older runs have no skip_qa flag; they ran QA whenever a sample was chosen.
+            if not details.get("skip_qa", not details.get("qa_review_ids")) and not _qa(session, settings, llm, run, title, codebook, themes):
                 return
             run.step = "summary"
             session.commit()
-        if run.step == "summary":
+        if run.step == "summary" and not details.get("skip_summary"):
             _summary(session, settings, llm, run, title, codebook, themes)
         _finish(session, run)
     except Exception as exc:

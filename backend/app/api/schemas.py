@@ -73,6 +73,7 @@ class TitleOut(ORM):
     publishers: list[str] | None
     appdetails_fetched_at: datetime | None
     created_at: datetime
+    auto_analyze: bool = False
     last_synced_at: datetime | None = None
     apps: list[AppStats] = []
 
@@ -91,6 +92,7 @@ class TitleUpdate(BaseModel):
     status: TitleStatus | None = None
     demo_app_id: int | None = Field(default=None, gt=0)
     notes: str | None = None
+    auto_analyze: bool | None = None
 
 
 class SyncRequest(BaseModel):

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.analysis.aggregate import Filters, current_tag_join, review_filter_clauses, theme_stats
 from app.analysis.codebooks import CodebookError, ThemeInput, approve, approved_codebook, create_version, themes_for
 from app.analysis.llm import AnthropicLLM, LLMClient, LLMNotConfigured
+from app.analysis.nightly import expected_monthly_cost
 from app.analysis.prep import PLAYTIME_BAND_LABELS
 from app.analysis.runs import RunError, active_run, cancel, confirm, estimate_analysis, estimate_discovery
 from app.analysis.tagging import pending_reviews
@@ -232,6 +233,15 @@ def approve_codebook(codebook_id: int, request: Request, session: Session = Depe
         raise HTTPException(409, "An analysis is running for this title. Approve a codebook after it finishes.")
     approve(session, cb, approved_by=actor(request))
     return codebook_out(session, cb)
+
+
+# Nightly analysis
+
+
+@router.get("/titles/{title_id}/auto-analysis")
+def auto_analysis(title_id: int, session: Session = Depends(get_session)):
+    """Whether new reviews are analyzed nightly, the nightly limit, and the expected monthly cost."""
+    return expected_monthly_cost(session, get_settings(), title_or_404(session, title_id))
 
 
 # Runs
