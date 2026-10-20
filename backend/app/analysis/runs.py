@@ -381,6 +381,7 @@ def _discovery(session: Session, settings: Settings, llm: LLMClient, run: Analys
         raise RunError(f"Theme discovery failed: {result.error}")
     codebook, warnings = save_proposed_codebook(session, run, sample, result)
     run.codebook_id = codebook.id
+    _set(run, "details", "raw_output", result.data)  # the model's answer as given, for auditing
     for w in warnings:
         _append_warning(run, w)
     _finish(session, run)

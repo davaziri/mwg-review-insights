@@ -7,7 +7,7 @@ from functools import cache
 from pathlib import Path
 from string import Template
 
-PROMPT_VERSION = "2026-10-20"
+PROMPT_VERSION = "2026-10-20.2"
 _DIR = Path(__file__).parent
 
 

@@ -1,5 +1,7 @@
 """Theme discovery: the analysis model reads a stratified sample and proposes a codebook."""
 
+import re
+
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
@@ -96,6 +98,10 @@ def save_proposed_codebook(
             )
         )
     themes = [t for t in themes if t.name.strip() and t.definition.strip()]
+    keys = {t.key for t in themes if t.key}
+    dangling = sorted({k for t in themes for k in re.findall(r"\b[a-z]+(?:_[a-z]+)+\b", t.exclude_notes) if k not in keys})
+    if dangling:
+        warnings.append(f"Exclude notes point to themes that aren't in the codebook: {', '.join(dangling)}.")
     if not MIN_THEMES <= len(themes) <= MAX_THEMES:
         warnings.append(f"The model proposed {len(themes)} themes (asked for {MIN_THEMES} to {MAX_THEMES}). Review before approving.")
     codebook = create_version(
