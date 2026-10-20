@@ -1,15 +1,19 @@
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import analysis, exports, portfolio, reviews, sync, titles
+from app.api import analysis, auth, exports, portfolio, reviews, sync, titles, users
+from app.auth import access
 from app.config import REPO_ROOT, get_settings
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Midwest Games Review Insights", version="0.1.0")
+    # access() runs before every route: sign-in for the API, admin for anything that changes data.
+    app = FastAPI(title="Midwest Games Review Insights", version="0.1.0", dependencies=[Depends(access)])
+    app.include_router(auth.router)
+    app.include_router(users.router)
     app.include_router(titles.router)
     app.include_router(sync.router)
     app.include_router(analysis.router)

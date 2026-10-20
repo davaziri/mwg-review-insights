@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.analysis.theme_match import MAX_TITLES, ThemeMatchError, sides_for, sto
 from app.analysis.theme_match import estimate as estimate_match
 from app.analysis.theme_match import run as run_match
 from app.api.analysis import get_llm
+from app.auth import actor
 from app.config import get_settings
 from app.db import get_session
 from app.models import ThemeMatch, Title
@@ -136,11 +137,11 @@ def theme_match_estimate(body: MatchRequest, session: Session = Depends(get_sess
 
 
 @router.post("/compare/theme-match")
-def theme_match_run(body: MatchRequest, session: Session = Depends(get_session), llm: LLMClient = Depends(get_llm)):
+def theme_match_run(body: MatchRequest, request: Request, session: Session = Depends(get_session), llm: LLMClient = Depends(get_llm)):
     """Match themes across the titles. The UI shows the estimate and asks first."""
     sides = _eligible(session, body.title_ids)
     try:
-        match = run_match(session, get_settings(), llm, sides, requested_by="app")
+        match = run_match(session, get_settings(), llm, sides, requested_by=actor(request))
     except ThemeMatchError as exc:
         raise HTTPException(502, f"Theme matching failed: {exc}") from exc
     return _match_out(match, sides)

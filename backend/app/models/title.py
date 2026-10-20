@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Integer, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -19,6 +19,8 @@ class Title(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     # Archived titles stay in the database but are hidden by default and skipped by the nightly sync.
     archived_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # Analyze new reviews every night (an admin switches this on; each night has a cost cap).
+    auto_analyze: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     # Cached from Steam's appdetails store endpoint.
     header_image_url: Mapped[str | None] = mapped_column(String(500))

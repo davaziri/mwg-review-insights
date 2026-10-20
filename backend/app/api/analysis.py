@@ -4,7 +4,7 @@ import random
 from functools import lru_cache
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from app.analysis.prep import PLAYTIME_BAND_LABELS
 from app.analysis.runs import RunError, active_run, cancel, confirm, estimate_analysis, estimate_discovery
 from app.analysis.tagging import pending_reviews
 from app.api.common import filters_dep, resolve_app, review_brief, serialize_reviews, title_or_404
+from app.auth import actor
 from app.config import get_settings
 from app.db import get_session
 from app.models import AnalysisRun, Codebook, Review, ReviewTag, Summary, Theme, ThemeMention, Title
@@ -203,7 +204,7 @@ def get_codebook(codebook_id: int, session: Session = Depends(get_session)):
 
 
 @router.post("/titles/{title_id}/codebooks", status_code=201)
-def save_codebook(title_id: int, body: CodebookIn, session: Session = Depends(get_session)):
+def save_codebook(title_id: int, body: CodebookIn, request: Request, session: Session = Depends(get_session)):
     """Save edits as a new version (versions never change after saving)."""
     title_or_404(session, title_id)
     try:
@@ -211,25 +212,25 @@ def save_codebook(title_id: int, body: CodebookIn, session: Session = Depends(ge
             session,
             title_id,
             [ThemeInput(**t.model_dump()) for t in body.themes],
-            created_by="team",
+            created_by=actor(request),
             note=body.note,
             parent_id=body.parent_id,
         )
     except CodebookError as exc:
         raise HTTPException(400, str(exc)) from exc
     if body.approve:
-        approve(session, cb, approved_by="team")
+        approve(session, cb, approved_by=actor(request))
     return codebook_out(session, cb)
 
 
 @router.post("/codebooks/{codebook_id}/approve")
-def approve_codebook(codebook_id: int, session: Session = Depends(get_session)):
+def approve_codebook(codebook_id: int, request: Request, session: Session = Depends(get_session)):
     cb = session.get(Codebook, codebook_id)
     if cb is None:
         raise HTTPException(404, "Codebook not found")
     if active_run(session, cb.title_id, session.get(Title, cb.title_id).steam_app_id):
         raise HTTPException(409, "An analysis is running for this title. Approve a codebook after it finishes.")
-    approve(session, cb, approved_by="team")
+    approve(session, cb, approved_by=actor(request))
     return codebook_out(session, cb)
 
 
@@ -243,7 +244,7 @@ class EstimateIn(BaseModel):
 
 @router.post("/titles/{title_id}/analysis/estimate", status_code=201)
 def create_estimate(
-    title_id: int, body: EstimateIn, session: Session = Depends(get_session), llm: LLMClient = Depends(get_llm)
+    title_id: int, body: EstimateIn, request: Request, session: Session = Depends(get_session), llm: LLMClient = Depends(get_llm)
 ):
     """Price a run before anything is spent. Nothing runs until the estimate is confirmed."""
     title = title_or_404(session, title_id)
@@ -251,9 +252,9 @@ def create_estimate(
     settings = get_settings()
     try:
         if body.kind == "discovery":
-            run = estimate_discovery(session, settings, llm, title, app)
+            run = estimate_discovery(session, settings, llm, title, app, requested_by=actor(request))
         else:
-            run = estimate_analysis(session, settings, llm, title, app)
+            run = estimate_analysis(session, settings, llm, title, app, requested_by=actor(request))
     except RunError as exc:
         raise HTTPException(400, str(exc)) from exc
     return run_out(run)
@@ -267,9 +268,9 @@ def _run(session: Session, run_id: int) -> AnalysisRun:
 
 
 @router.post("/analysis-runs/{run_id}/confirm")
-def confirm_run(run_id: int, session: Session = Depends(get_session)):
+def confirm_run(run_id: int, request: Request, session: Session = Depends(get_session)):
     try:
-        return run_out(confirm(session, _run(session, run_id)))
+        return run_out(confirm(session, _run(session, run_id), confirmed_by=actor(request)))
     except RunError as exc:
         raise HTTPException(409, str(exc)) from exc
 

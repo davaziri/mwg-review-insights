@@ -21,6 +21,7 @@ def settings(tmp_path) -> Settings:
         steam_publisher_key=None,
         steam_request_interval_seconds=0,
         steam_max_retries=2,
+        auth_mode="local",
     )
 
 
@@ -78,8 +79,8 @@ def api(session_factory, settings, monkeypatch, fake_llm) -> TestClient:
     """The FastAPI app wired to the test database, settings and fake LLM, with seed titles loaded."""
     from app.api import analysis
 
-    for module in ("titles", "sync", "analysis", "portfolio", "exports"):
-        monkeypatch.setattr(f"app.api.{module}.get_settings", lambda: settings)
+    for module in ("app.api.titles", "app.api.sync", "app.api.analysis", "app.api.portfolio", "app.api.exports", "app.api.auth", "app.auth"):
+        monkeypatch.setattr(f"{module}.get_settings", lambda: settings)
     monkeypatch.setattr(analysis, "_llm", lambda: fake_llm)
     app = create_app()
 

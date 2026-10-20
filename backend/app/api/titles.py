@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from app.api.schemas import (
     TitleOut,
     TitleUpdate,
 )
+from app.auth import actor
 from app.config import get_settings
 from app.db import get_session
 from app.models import Review, ReviewSnapshot, SyncRun, Title
@@ -86,7 +87,7 @@ def get_title(title_id: int, session: Session = Depends(get_session)):
 
 
 @router.post("", response_model=TitleOut, status_code=201)
-def create_title(body: TitleCreate, session: Session = Depends(get_session)):
+def create_title(body: TitleCreate, request: Request, session: Session = Depends(get_session)):
     if session.scalar(select(Title).where(Title.steam_app_id == body.steam_app_id)):
         raise HTTPException(409, f"Steam app {body.steam_app_id} is already tracked")
     title = Title(
@@ -106,7 +107,7 @@ def create_title(body: TitleCreate, session: Session = Depends(get_session)):
         title.name = body.name
     session.commit()
     if body.sync_now:
-        enqueue_sync(session, get_settings(), title, trigger="manual")
+        enqueue_sync(session, get_settings(), title, trigger="manual", requested_by=actor(request))
     return _title_out(session, title)
 
 
@@ -150,12 +151,12 @@ def delete_title(title_id: int, session: Session = Depends(get_session)):
 
 
 @router.post("/{title_id}/sync", response_model=list[SyncRunOut])
-def sync_title(title_id: int, body: SyncRequest | None = None, session: Session = Depends(get_session)):
+def sync_title(title_id: int, request: Request, body: SyncRequest | None = None, session: Session = Depends(get_session)):
     title = _get_title(session, title_id)
     if title.archived_at is not None:
         raise HTTPException(409, "Unarchive this title before syncing it")
     mode = body.mode if body else None
-    return enqueue_sync(session, get_settings(), title, trigger="manual", mode=mode)
+    return enqueue_sync(session, get_settings(), title, trigger="manual", mode=mode, requested_by=actor(request))
 
 
 @router.get("/{title_id}/sync-runs", response_model=list[SyncRunOut])

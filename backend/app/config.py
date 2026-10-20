@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -85,6 +86,64 @@ class Settings(BaseSettings):
     # Runs that tag fewer reviews than this call the API directly; larger ones use the Batches API.
     direct_max_reviews: int = 100
     batch_poll_seconds: int = 30
+
+    # Sign-in. "google" lets in only Google accounts on the allowed domains; "local" turns sign-in
+    # off and treats everyone as an admin, for running the app on your own computer only.
+    auth_mode: Literal["google", "local"] = "google"
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    # Comma-separated email domains that may sign in, e.g. "midwestgames.com".
+    allowed_domains: str = ""
+    # Comma-separated emails that are always admins. Everyone else starts as a viewer. If this is
+    # empty, the first person to sign in becomes an admin.
+    admin_emails: str = ""
+    # The address people use to reach the app, e.g. https://insights.midwestgames.com. Used for the
+    # Google sign-in return address and for links in alerts.
+    public_url: str | None = None
+    # Signs the sign-in cookie. Leave empty to have one made and kept in the data folder.
+    session_secret: str | None = None
+    session_days: int = 14
+
+    # Nightly analysis of new reviews, for titles where an admin switched it on.
+    analysis_cron: str = "0 5 * * *"
+    # A nightly run whose estimate is above this (USD, per title) waits for an admin to confirm it.
+    nightly_analysis_max_usd: float = 0.50
+    # The executive summary is rewritten at most this often by nightly runs.
+    summary_refresh_days: int = 7
+
+    # Alerts: a Slack incoming webhook and/or email. Both optional.
+    slack_webhook_url: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    # Comma-separated addresses that receive alert emails.
+    alert_emails: str = ""
+    # Alert when a title's % recommended falls by more than this many points over this many days.
+    alert_drop_points: float = 5.0
+    alert_drop_days: int = 7
+    # Too few reviews make the percentage jumpy; below this the drop alert stays quiet.
+    alert_min_reviews: int = 20
+
+    @property
+    def allowed_domain_list(self) -> list[str]:
+        return [d.strip().lower().lstrip("@") for d in self.allowed_domains.split(",") if d.strip()]
+
+    @property
+    def admin_email_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
+
+    @property
+    def alert_email_list(self) -> list[str]:
+        return [e.strip() for e in self.alert_emails.split(",") if e.strip()]
+
+    @property
+    def data_dir(self) -> Path:
+        """Where the app keeps its files: next to the SQLite database, or the repo's data folder."""
+        if self.database_url.startswith("sqlite:///"):
+            return Path(self.database_url.removeprefix("sqlite:///")).resolve().parent
+        return REPO_ROOT / "data"
 
     @property
     def steam_request_interval(self) -> float:

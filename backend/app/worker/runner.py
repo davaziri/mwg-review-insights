@@ -61,13 +61,13 @@ def process_queue(
             ran += 1
 
 
-def enqueue_all_active(session: Session, settings: Settings, trigger: str = "schedule") -> list[SyncRun]:
+def enqueue_all_active(session: Session, settings: Settings, trigger: str = "schedule", requested_by: str | None = None) -> list[SyncRun]:
     """Queue a sync for every title that is not archived, released or not. Unreleased titles
     return no reviews until they have some, then start filling in on their own."""
     runs: list[SyncRun] = []
     titles = session.scalars(select(Title).where(Title.archived_at.is_(None)).order_by(Title.id))
     for title in titles:
-        runs.extend(enqueue_sync(session, settings, title, trigger=trigger))
+        runs.extend(enqueue_sync(session, settings, title, trigger=trigger, requested_by=requested_by))
     return runs
 
 

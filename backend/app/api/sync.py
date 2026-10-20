@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import SyncRunOut, SyncRunWithTitle
+from app.auth import actor
 from app.config import get_settings
 from app.db import get_session
 from app.models import SyncRun, Title
@@ -12,8 +13,8 @@ router = APIRouter(prefix="/api", tags=["sync"])
 
 
 @router.post("/sync/all", response_model=list[SyncRunOut])
-def sync_all(session: Session = Depends(get_session)):
-    return enqueue_all_active(session, get_settings(), trigger="manual")
+def sync_all(request: Request, session: Session = Depends(get_session)):
+    return enqueue_all_active(session, get_settings(), trigger="manual", requested_by=actor(request))
 
 
 @router.get("/sync-runs", response_model=list[SyncRunWithTitle])
