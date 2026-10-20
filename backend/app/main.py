@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import analysis, auth, exports, portfolio, reviews, sync, titles, users
+from app.api import alerts, analysis, auth, exports, portfolio, reviews, sync, titles, users
 from app.auth import access
 from app.config import REPO_ROOT, get_settings
 
@@ -20,6 +20,7 @@ def create_app() -> FastAPI:
     app.include_router(reviews.router)
     app.include_router(portfolio.router)
     app.include_router(exports.router)
+    app.include_router(alerts.router)
 
     @app.get("/api/health", tags=["meta"])
     def health():

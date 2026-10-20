@@ -16,6 +16,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.alerts import check_alerts
 from app.analysis.llm import AnthropicLLM, LLMClient, LLMNotConfigured
 from app.analysis.nightly import nightly_analysis
 from app.analysis.runs import process_analysis
@@ -25,6 +26,8 @@ from app.steam.client import SteamClient
 from app.steam.sync import enqueue_sync, run_sync
 
 log = logging.getLogger(__name__)
+
+ALERT_CHECK_SECONDS = 300
 
 
 def recover_interrupted(session: Session) -> int:
@@ -130,10 +133,18 @@ def main() -> None:
     log.info(
         "Worker started. Nightly sync at '%s', nightly analysis at '%s' (%s)", settings.sync_cron, settings.analysis_cron, settings.sync_timezone
     )
+    last_alert_check = 0.0
     try:
         while True:
             process_queue(SessionLocal, settings, client)
             process_analysis(SessionLocal, settings, llm_factory)
+            if time.monotonic() - last_alert_check >= ALERT_CHECK_SECONDS:
+                last_alert_check = time.monotonic()
+                try:
+                    with SessionLocal() as session:
+                        check_alerts(session, settings)
+                except Exception:  # alerts must never stop syncing
+                    log.exception("Alert check failed")
             time.sleep(settings.worker_poll_seconds)
     except KeyboardInterrupt:
         pass
