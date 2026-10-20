@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router";
 
 import { api } from "../api/client";
 import { STATUS_LABELS, type AppCard, type PortfolioCard, type ThemeHighlights } from "../api/types";
 import { WeeklyBars } from "../components/charts/WeeklyBars";
-import { Badge, Button } from "../components/ui";
+import { Badge, Button, selectClass } from "../components/ui";
+import { download, exportName } from "../lib/download";
+import { qs, RANGE_LABELS, rangeStart, type RangePreset } from "../lib/filters";
 import { shareFloor, timeAgo } from "../lib/format";
 
 function TrendLine({ app }: { app: AppCard }) {
@@ -113,6 +116,41 @@ function TitleCard({ t }: { t: PortfolioCard }) {
   );
 }
 
+/** The portfolio PDF: a summary page plus a page per title, optionally for a date range. */
+function PortfolioExport() {
+  const [range, setRange] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const from = range ? rangeStart(range as RangePreset) : undefined;
+      await download(`/api/portfolio/export.pdf${qs({ date_from: from })}`, exportName("Portfolio", "Report", "pdf"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Download failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <select aria-label="Report dates" className={selectClass} value={range} onChange={(e) => setRange(e.target.value)}>
+        <option value="">All time</option>
+        {Object.entries(RANGE_LABELS).map(([k, label]) => (
+          <option key={k} value={k}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <Button onClick={run} disabled={busy}>
+        {busy ? "Preparing PDF..." : "Portfolio PDF"}
+      </Button>
+      {error && <span className="text-xs text-negative-ink">{error}</span>}
+    </div>
+  );
+}
+
 export function PortfolioPage() {
   const portfolio = useQuery({ queryKey: ["portfolio"], queryFn: api.portfolio, refetchInterval: 60_000 });
   if (portfolio.isPending) return <p className="text-sm text-muted">Loading...</p>;
@@ -129,6 +167,7 @@ export function PortfolioPage() {
             {titles.length} titles, {total.toLocaleString()} Steam reviews collected. Recommended shares are rounded down, the way Steam shows them.
           </p>
         </div>
+        <PortfolioExport />
         <Link to="/compare">
           <Button>Compare titles</Button>
         </Link>

@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { ChartFrame } from "./ChartFrame";
-import { Legend, TooltipBox, useChartTheme } from "./parts";
+import { TooltipBox, useChartTheme } from "./parts";
 
 export interface SeriesDef {
   key: string;
@@ -34,7 +34,8 @@ export function CompareLines({
   return (
     <ChartFrame
       label={label}
-      legend={<Legend shape="line" items={series.map((s) => ({ color: s.color, label: s.label }))} />}
+      legend={series.map((s) => ({ color: s.color, label: s.label }))}
+      legendShape="line"
       table={{
         columns: ["Period", ...series.map((s) => s.label)],
         rows: rows.map((r) => [xLabel(r.x), ...series.map((s) => (typeof r[s.key] === "number" ? format(r[s.key] as number) : ""))]),

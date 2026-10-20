@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{DEFAULT_DB_PATH}"
     # Built frontend served by the API in production. Defaults to frontend/dist in the repo.
     frontend_dist: str | None = None
+    # Branding shared with the web app (name, logo, colors), used by the PDF reports.
+    brand_file: str = str(REPO_ROOT / "frontend" / "src" / "theme" / "brand.json")
+    logo_file: str = str(REPO_ROOT / "frontend" / "public" / "brand" / "logo.svg")
+    # PDF reports are drawn by Chromium through Playwright. Leave empty to use the browser that
+    # `playwright install chromium` downloads; set it to use one already on the machine.
+    chromium_path: str | None = None
 
     # Steam
     steam_publisher_key: str | None = None

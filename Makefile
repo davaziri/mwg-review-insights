@@ -17,6 +17,8 @@ $(VENV)/.installed: backend/pyproject.toml
 	$(PYTHON) -m venv $(VENV)
 	$(BIN)/pip install --quiet --upgrade pip
 	$(BIN)/pip install --quiet -e "backend[dev]"
+	@# Chromium for PDF reports (skipped when CHROMIUM_PATH points at one already installed).
+	@if [ -z "$$CHROMIUM_PATH" ]; then $(BIN)/python -m playwright install chromium; fi
 	@touch $@
 
 frontend/node_modules/.installed: frontend/package.json frontend/package-lock.json

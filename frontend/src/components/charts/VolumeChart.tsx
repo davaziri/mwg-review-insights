@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Toolt
 import type { MonthStat } from "../../api/types";
 import { pct } from "../../lib/format";
 import { ChartFrame } from "./ChartFrame";
-import { compact, Legend, monthLabel, monthRange, TooltipBox, useChartTheme } from "./parts";
+import { compact, monthLabel, monthRange, TooltipBox, useChartTheme } from "./parts";
 
 interface Row {
   month: string;
@@ -28,14 +28,10 @@ export function VolumeChart({ months }: { months: MonthStat[] }) {
   return (
     <ChartFrame
       label="Reviews per month"
-      legend={
-        <Legend
-          items={[
-            { color: p.positive, label: "Recommended (above the line)" },
-            { color: p.negative, label: "Not recommended (below)" },
-          ]}
-        />
-      }
+      legend={[
+        { color: p.positive, label: "Recommended (above the line)" },
+        { color: p.negative, label: "Not recommended (below)" },
+      ]}
       table={{
         columns: ["Month", "Reviews", "Recommended", "Not recommended", "% positive"],
         rows: rows.map((r) => [monthLabel(r.month), r.total, r.positive, -r.negative, r.total ? pct(r.positive / r.total) : ""]),

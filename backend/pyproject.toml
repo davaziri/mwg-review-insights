@@ -12,6 +12,8 @@ dependencies = [
     "pydantic-settings>=2.16",
     "apscheduler>=3.11,<4",
     "anthropic>=1.15,<2",
+    "openpyxl>=3.1.5,<4",
+    "playwright>=1.63,<1.64",
 ]
 
 [project.optional-dependencies]

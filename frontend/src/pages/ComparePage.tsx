@@ -5,6 +5,7 @@ import { Link, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { CompareTheme, CompareTitle, Comparison } from "../api/types";
 import { SentimentBar } from "../components/analysis/ThemesTable";
+import { ChartOwner } from "../components/charts/ChartFrame";
 import { CompareLines, type SeriesDef } from "../components/charts/CompareLines";
 import { monthLabel, monthRange } from "../components/charts/parts";
 import { Button, Card, Dialog, selectClass } from "../components/ui";
@@ -397,7 +398,9 @@ export function ComparePage() {
               </div>
             ))}
           </div>
-          <Charts titles={ordered} series={series} />
+          <ChartOwner.Provider value="Compare">
+            <Charts titles={ordered} series={series} />
+          </ChartOwner.Provider>
           <div className="mt-5">
             <Themes data={data} colorOf={colorOf} onMatched={() => queryClient.invalidateQueries({ queryKey: ["compare"] })} />
           </div>

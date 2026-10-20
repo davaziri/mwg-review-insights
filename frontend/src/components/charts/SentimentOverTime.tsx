@@ -2,7 +2,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 
 import type { ThemeCell } from "../../api/types";
 import { ChartFrame } from "./ChartFrame";
-import { compact, Legend, monthLabel, monthRange, TooltipBox, useChartTheme } from "./parts";
+import { compact, monthLabel, monthRange, TooltipBox, useChartTheme } from "./parts";
 
 type Row = { month: string; positive: number; mixed: number; negative: number; mentions: number; analyzed: number };
 
@@ -24,7 +24,7 @@ export function SentimentOverTime({ monthly, analyzedByMonth }: { monthly: (Them
   return (
     <ChartFrame
       label="Mentions per month by sentiment"
-      legend={<Legend items={series.map((s) => ({ color: s.color, label: s.label }))} />}
+      legend={series.map((s) => ({ color: s.color, label: s.label }))}
       table={{
         columns: ["Month", "Mentions", "Positive", "Mixed", "Negative", "Analyzed reviews"],
         rows: rows.map((r) => [monthLabel(r.month), r.mentions, r.positive, r.mixed, r.negative, r.analyzed]),

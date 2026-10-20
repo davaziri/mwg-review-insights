@@ -78,7 +78,7 @@ def api(session_factory, settings, monkeypatch, fake_llm) -> TestClient:
     """The FastAPI app wired to the test database, settings and fake LLM, with seed titles loaded."""
     from app.api import analysis
 
-    for module in ("titles", "sync", "analysis", "portfolio"):
+    for module in ("titles", "sync", "analysis", "portfolio", "exports"):
         monkeypatch.setattr(f"app.api.{module}.get_settings", lambda: settings)
     monkeypatch.setattr(analysis, "_llm", lambda: fake_llm)
     app = create_app()

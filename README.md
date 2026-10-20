@@ -9,8 +9,8 @@ Internal tool that pulls every Steam review for each Midwest Games title, finds 
 |---|---|
 | 1. Review ingestion | Done; verified against live Steam |
 | 2. Analysis pipeline | Done; verified on Duck Paradox (spot check: 20 of 20 right) |
-| 3. App UI | Built; waiting for review |
-| 4. Exports | Not started |
+| 3. App UI | Done |
+| 4. Exports | Built; waiting for review |
 | 5. Access, scheduling, handoff | Not started |
 
 ## Run it locally
@@ -87,9 +87,24 @@ The **Spot check** on a title's page shows 20 random tagged reviews with their q
 - **Every chart** has a "Show numbers" switch that shows the same data as a table, and hovering a chart shows the exact values.
 - **Light and dark mode**: the switch in the top right follows the computer's setting until someone picks light or dark.
 
+## Exports
+
+Every export uses the filters set on the page it comes from, and is named `MWG_<Title>_<ReportType>_<YYYY-MM-DD>`, for example `MWG_Duck_Paradox_Report_2026-10-20.pdf`.
+
+- **Export** (top right of a title's page):
+  - **PDF report**: cover, headline numbers, reviews per month, overall impression, executive summary, theme table with sentiment bars, the 3 most praised and 3 most criticized themes with up to 3 verbatim quotes each (each linked to the review on Steam), and a note on how the report was made (dates, filters, review counts, models, codebook version, quality check). US Letter, with page numbers.
+  - **Excel workbook**: About (filters, counts, models), Theme summary, Coded reviews (one row per review, a column per theme with its sentiment), and Monthly trends. Plain values only, no formulas, so it opens cleanly in Google Sheets.
+  - **CSV of coded reviews**: the same rows as the workbook's Coded reviews sheet.
+- **Portfolio PDF** (on the Portfolio page): a summary page across all titles, then one page per title with reviews. Pick a date range next to the button.
+- **Copy as image** on every chart puts a PNG of the chart, with its title and legend, on the clipboard. Browsers that don't allow that save it as a file instead.
+
+Reviews are written by the public, so a review that starts with `=` (which a spreadsheet could run as a formula) is always stored as text: in the workbook as a text cell, and in the CSV with a leading apostrophe. Quotes in PDF reports are checked against the review text again when the report is made, and any that don't match are left out.
+
+PDFs are printed by Chromium through Playwright. `make dev` and the Docker image install it; to use a Chromium that's already on the machine instead, set `CHROMIUM_PATH`.
+
 ## Branding
 
-Everything visual that is brand-specific lives in one file, [frontend/src/theme/brand.ts](frontend/src/theme/brand.ts): the app name, the logo path (the logo itself is `frontend/public/brand/logo.svg`), and every color for light and dark mode. The colors there are placeholders until Midwest Games supplies its own. The chart colors were checked for color-blind readers with a palette validator; if you change them, keep positive, mixed and negative clearly apart from each other in both modes.
+Everything brand-specific lives in one file, [frontend/src/theme/brand.json](frontend/src/theme/brand.json): the app name, the logo path (the logo itself is `frontend/public/brand/logo.svg`), and every color for light and dark mode. The web app and the PDF reports both read it. The colors there are placeholders until Midwest Games supplies its own. [brand.ts](frontend/src/theme/brand.ts) next to it explains what each color is for. The chart colors were checked for color-blind readers with a palette validator; if you change them, keep positive, mixed and negative clearly apart from each other in both modes.
 
 ## Adding a title
 

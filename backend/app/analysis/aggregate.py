@@ -189,6 +189,17 @@ def _overall(rows: list[ReviewRow]) -> dict:
     }
 
 
+def highlights(themes: list[dict], limit: int = 1) -> tuple[list[dict], list[dict]]:
+    """The most praised and most criticized themes, from rows with positive, negative and mentions.
+
+    Ranked by how many more positive than negative mentions a theme has (and the reverse), so a
+    theme that is widely discussed but splits players doesn't count as the most praised.
+    """
+    praised = sorted((t for t in themes if t["positive"] > t["negative"]), key=lambda t: (t["negative"] - t["positive"], -t["mentions"]))
+    criticized = sorted((t for t in themes if t["negative"] > t["positive"]), key=lambda t: (t["positive"] - t["negative"], -t["mentions"]))
+    return praised[:limit], criticized[:limit]
+
+
 def _segment_label(dimension: str, value) -> str:
     if dimension == "playtime_band":
         return PLAYTIME_BAND_LABELS.get(value, value)

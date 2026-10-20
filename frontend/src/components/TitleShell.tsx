@@ -4,6 +4,8 @@ import { Link, NavLink, Outlet, useLocation, useOutletContext, useParams, useSea
 import { api } from "../api/client";
 import { STATUS_LABELS, type Title } from "../api/types";
 import { filterSearch, readFilters, writeFilters, type PageFilters } from "../lib/filters";
+import { ChartOwner } from "./charts/ChartFrame";
+import { ExportMenu } from "./ExportMenu";
 import { FilterBar } from "./FilterBar";
 import { Badge } from "./ui";
 
@@ -67,6 +69,7 @@ export function TitleShell() {
             </a>
           </div>
         </div>
+        <ExportMenu titleId={t.id} subject={appId === t.steam_app_id ? t.name : `${t.name} demo`} filters={{ ...filters, app: appId }} />
         {demo && (
           <div className="flex rounded-md border border-line p-0.5 text-sm" role="radiogroup" aria-label="Main game or demo">
             {[main, demo].map(
@@ -101,7 +104,9 @@ export function TitleShell() {
       </nav>
 
       {!onAnalysis && <FilterBar titleId={t.id} appId={appId} />}
-      <Outlet context={{ title: t, appId, filters: { ...filters, app: appId }, search } satisfies TitleContext} />
+      <ChartOwner.Provider value={appId === t.steam_app_id ? t.name : `${t.name} demo`}>
+        <Outlet context={{ title: t, appId, filters: { ...filters, app: appId }, search } satisfies TitleContext} />
+      </ChartOwner.Provider>
     </div>
   );
 }
