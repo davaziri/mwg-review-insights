@@ -23,15 +23,15 @@ export function SpotCheck({ titleId, appId }: { titleId: number; appId: number }
         </Button>
       }
     >
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-ink-2">
         Read each review and check you agree with its overall impression, themes and sentiment. Highlighted text is copied exactly from the
         review and is what the app quotes; hover a highlight to see its theme. Bold outlined text is the quote behind the overall
         impression.
       </p>
-      {sample.isError && <p className="mt-3 text-sm text-red-700">{sample.error.message}</p>}
+      {sample.isError && <p className="mt-3 text-sm text-negative-ink">{sample.error.message}</p>}
       {sample.data && (
         <div className="mt-4 space-y-3">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             {sample.data.reviews.length} of {sample.data.total.toLocaleString()} analyzed reviews, picked at random.
           </p>
           {sample.data.reviews.map((r) => (

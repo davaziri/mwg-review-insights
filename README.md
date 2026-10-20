@@ -8,8 +8,8 @@ Internal tool that pulls every Steam review for each Midwest Games title, finds 
 | Phase | Status |
 |---|---|
 | 1. Review ingestion | Done; verified against live Steam |
-| 2. Analysis pipeline | Built and tested; waiting on the first live run (needs the API key in this environment) |
-| 3. App UI | Not started |
+| 2. Analysis pipeline | Done; verified on Duck Paradox (spot check: 20 of 20 right) |
+| 3. App UI | Built; waiting for review |
 | 4. Exports | Not started |
 | 5. Access, scheduling, handoff | Not started |
 
@@ -74,6 +74,22 @@ Rules the pipeline enforces in code:
 - Reviews with almost no text ("good", "10/10", emoji) are stored as "no content" and counted, but not sent to the model.
 
 The **Spot check** on a title's page shows 20 random tagged reviews with their quotes highlighted, to check the tags by eye. The overall impression quote is shown in bold with an outline.
+
+## Using the app
+
+- **Portfolio** (the home page): a card per title with its header image, review count, % recommended, Steam's rating, reviews per week for the last 12 weeks, the last 30 days against the 30 before, the most praised and most criticized themes, and when it last synced. Unreleased titles show "No reviews yet". "Most praised" is the theme with the most positive mentions after taking away its negative ones (and the reverse for "most criticized"), so a theme that splits players doesn't top either list.
+- **A title's page** has three tabs, with one row of filters above the first two: dates, vote, playtime, language, early access or after release, Steam Deck, and developer reply. The filters live in the page address, so a filtered view can be bookmarked or sent to someone.
+  - **Overview**: headline numbers, reviews per month (recommended above the line, not recommended below), the executive summary, the overall impression split, and the theme table. The theme table sorts by share, sentiment or net, shows each theme's trend over the selected dates, and each theme opens its own page: definition, what counts and what doesn't, mentions per month by sentiment, and its reviews (all, or only positive, mixed or negative), with the quotes highlighted.
+  - **Reviews**: every review, searchable. Search matches parts of words in any language (Chinese and Japanese included); put a phrase in quotes to match it exactly. Sort by newest, oldest, most helpful or most playtime, or narrow to one overall impression.
+  - **Themes setup**: find themes, edit and approve the codebook, run analysis, and spot-check 20 random reviews (Phase 2).
+- **Compare**: pick 2 to 4 titles to see % recommended, Steam's rating, reviews per month and % recommended by quarter side by side. Each title keeps its color while it stays picked.
+  - Each title's themes come from its own reviews, so the same topic can have a different name in each game. **Match similar themes** has the analysis model group the themes that are about the same thing (it reads the theme names and definitions, not the reviews). Like every model call it shows the cost first (about $0.02 for two titles) and runs only when confirmed. The result is saved and reused until one of the titles approves a new codebook. Matching needs at least two titles with analyzed reviews.
+- **Every chart** has a "Show numbers" switch that shows the same data as a table, and hovering a chart shows the exact values.
+- **Light and dark mode**: the switch in the top right follows the computer's setting until someone picks light or dark.
+
+## Branding
+
+Everything visual that is brand-specific lives in one file, [frontend/src/theme/brand.ts](frontend/src/theme/brand.ts): the app name, the logo path (the logo itself is `frontend/public/brand/logo.svg`), and every color for light and dark mode. The colors there are placeholders until Midwest Games supplies its own. The chart colors were checked for color-blind readers with a palette validator; if you change them, keep positive, mixed and negative clearly apart from each other in both modes.
 
 ## Adding a title
 

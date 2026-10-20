@@ -237,8 +237,17 @@ export type OverallSentiment = "positive" | "mixed" | "negative" | "none";
 
 export type OverallSplit = Record<OverallSentiment, { count: number; share: number }>;
 
+export interface MonthStat {
+  month: string;
+  reviews: number;
+  analyzed: number;
+  positive_votes: number;
+  overall: OverallSplit;
+}
+
 export interface ThemeStats {
   counts: { reviews: number; with_content: number; no_content: number; analyzed: number; pending: number; positive_votes: number };
+  months: MonthStat[];
   themes: ThemeStat[];
   developer_response: { responded: number; rate: number; median_hours: number | null };
   other: { count: number; share: number };
@@ -273,14 +282,144 @@ export interface TaggedReview {
   gist_en: string | null;
   other_flag: boolean;
   other_note: string | null;
-  model: string;
+  model: string | null;
+  /** False for reviews with no text to analyze, or not analyzed yet. */
+  tagged: boolean;
+  content_status: "ok" | "no_content" | null;
   overall: {
     sentiment: OverallSentiment;
     quote_start: number | null;
     quote_end: number | null;
     quote_status: "ok" | "dropped" | "none";
-  };
+  } | null;
   mentions: Mention[];
+  /** Where the search terms occur in text, when the list came from a search. */
+  matches?: [number, number][];
+}
+
+export interface ReviewList {
+  total: number;
+  page: number;
+  page_size: number;
+  terms: string[];
+  reviews: TaggedReview[];
+  codebook: { id: number; version: number } | null;
+}
+
+export interface Facets {
+  app_id: number;
+  total: number;
+  date_min: string | null;
+  date_max: string | null;
+  languages: { code: string; count: number }[];
+  playtime_bands: { band: string; label: string; count: number }[];
+  early_access: number;
+  steam_deck: number;
+  developer_response: number;
+}
+
+export interface SteamScore {
+  total_reviews: number;
+  review_score_desc: string | null;
+  snapshot_date: string;
+}
+
+export interface Trend {
+  days: number;
+  last: { reviews: number; positive_share: number | null };
+  previous: { reviews: number; positive_share: number | null };
+}
+
+export interface ThemeHighlight {
+  key: string;
+  name: string;
+  mentions: number;
+  positive: number;
+  negative: number;
+  mixed: number;
+  share: number | null;
+}
+
+export interface ThemeHighlights {
+  codebook_version: number;
+  analyzed: number;
+  top_praised: ThemeHighlight | null;
+  top_criticized: ThemeHighlight | null;
+}
+
+export interface AppCard {
+  app_id: number;
+  reviews: number;
+  positive_share: number | null;
+  steam: SteamScore | null;
+  trend: Trend;
+  weekly: { week_start: string; reviews: number; positive: number }[];
+}
+
+export interface PortfolioCard extends AppCard {
+  id: number;
+  name: string;
+  status: TitleStatus;
+  header_image_url: string | null;
+  developers: string[];
+  release_date_text: string | null;
+  themes: ThemeHighlights | null;
+  demo: (AppCard & { themes: ThemeHighlights | null }) | null;
+  last_synced_at: string | null;
+  syncing: boolean;
+}
+
+export interface CompareTheme {
+  key: string;
+  name: string;
+  definition: string;
+  mentions: number;
+  share: number;
+  positive: number;
+  negative: number;
+  mixed: number;
+  net: number | null;
+}
+
+export interface CompareTitle {
+  id: number;
+  name: string;
+  header_image_url: string | null;
+  app_id: number;
+  reviews: number;
+  positive_share: number | null;
+  analyzed: number;
+  codebook_version: number | null;
+  steam: SteamScore | null;
+  trend: Trend;
+  months: { month: string; reviews: number; positive_votes: number }[];
+  overall: OverallSplit | null;
+  themes: CompareTheme[];
+}
+
+export interface ThemeMatchResult {
+  model: string;
+  created_at: string;
+  cost_usd: number;
+  /** Each group maps title id (as a string) to that title's theme key. */
+  groups: { name: string; themes: Record<string, string> }[];
+}
+
+export interface Comparison {
+  titles: CompareTitle[];
+  theme_match: {
+    eligible_title_ids: number[];
+    status: "ready" | "not_matched" | "not_enough";
+    match: ThemeMatchResult | null;
+  };
+}
+
+export interface ThemeMatchEstimate {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  title_ids: number[];
 }
 
 export interface SummaryPoint {

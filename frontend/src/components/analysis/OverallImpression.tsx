@@ -3,7 +3,7 @@ import { pct } from "../../lib/format";
 import { Card, OVERALL_WORD } from "../ui";
 
 const ORDER: OverallSentiment[] = ["positive", "mixed", "negative", "none"];
-const BAR: Record<OverallSentiment, string> = { positive: "bg-positive", mixed: "bg-mixed", negative: "bg-negative", none: "bg-slate-300" };
+const BAR: Record<OverallSentiment, string> = { positive: "bg-positive", mixed: "bg-mixed", negative: "bg-negative", none: "bg-neutral" };
 
 export function OverallImpression({ stats }: { stats: ThemeStats }) {
   const split = stats.overall;
@@ -11,13 +11,13 @@ export function OverallImpression({ stats }: { stats: ThemeStats }) {
   if (!counted) return null;
   return (
     <Card title="Overall impression">
-      <p className="mb-3 text-xs text-slate-500">
+      <p className="mb-3 text-xs text-muted">
         What each of the {stats.counts.analyzed.toLocaleString()} analyzed reviews says about the game as a whole, such as "great game" or
         "waste of money". It is counted on its own, so it never adds to a theme. "No overall view" means the review only talks about
         specific things.
       </p>
-      <div className="flex h-3 w-full overflow-hidden rounded bg-slate-100" aria-hidden>
-        {ORDER.map((k) => (
+      <div className="flex h-3 w-full gap-[2px] overflow-hidden rounded" aria-hidden>
+        {ORDER.filter((k) => split[k].count > 0).map((k) => (
           <div key={k} className={BAR[k]} style={{ width: `${(100 * split[k].count) / counted}%` }} />
         ))}
       </div>
@@ -25,9 +25,9 @@ export function OverallImpression({ stats }: { stats: ThemeStats }) {
         {ORDER.map((k) => (
           <div key={k} className="flex items-center gap-1.5">
             <span className={`inline-block h-2.5 w-2.5 rounded-sm ${BAR[k]}`} aria-hidden />
-            <dt className="text-slate-600">{OVERALL_WORD[k][0].toUpperCase() + OVERALL_WORD[k].slice(1)}</dt>
+            <dt className="text-ink-2">{OVERALL_WORD[k][0].toUpperCase() + OVERALL_WORD[k].slice(1)}</dt>
             <dd className="font-medium tabular-nums">
-              {pct(split[k].share)} <span className="font-normal text-slate-500">({split[k].count.toLocaleString()})</span>
+              {pct(split[k].share)} <span className="font-normal text-muted">({split[k].count.toLocaleString()})</span>
             </dd>
           </div>
         ))}

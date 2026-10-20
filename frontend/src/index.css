@@ -1,14 +1,52 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Every color comes from src/theme/brand.ts, written as --c-* variables by applyBrand(). */
 @theme inline {
-  --color-brand: var(--brand-primary);
-  --color-brand-hover: var(--brand-primary-hover);
-  --color-on-brand: var(--brand-on-primary);
-  --color-positive: var(--brand-positive);
-  --color-negative: var(--brand-negative);
-  --color-mixed: var(--brand-mixed);
+  --color-brand: var(--c-brand);
+  --color-brand-hover: var(--c-brand-hover);
+  --color-on-brand: var(--c-on-brand);
+  --color-link: var(--c-link);
+
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-subtle: var(--c-subtle);
+  --color-soft: var(--c-soft);
+  --color-ink: var(--c-ink);
+  --color-ink-2: var(--c-ink-2);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-line: var(--c-line);
+  --color-line-soft: var(--c-line-soft);
+  --color-line-strong: var(--c-line-strong);
+
+  --color-positive: var(--c-positive);
+  --color-positive-soft: var(--c-positive-soft);
+  --color-positive-mark: var(--c-positive-mark);
+  --color-positive-ink: var(--c-positive-ink);
+  --color-positive-line: var(--c-positive-line);
+  --color-positive-solid: var(--c-positive-solid);
+  --color-negative: var(--c-negative);
+  --color-negative-soft: var(--c-negative-soft);
+  --color-negative-mark: var(--c-negative-mark);
+  --color-negative-ink: var(--c-negative-ink);
+  --color-negative-line: var(--c-negative-line);
+  --color-negative-solid: var(--c-negative-solid);
+  --color-mixed: var(--c-mixed);
+  --color-mixed-soft: var(--c-mixed-soft);
+  --color-mixed-mark: var(--c-mixed-mark);
+  --color-mixed-ink: var(--c-mixed-ink);
+  --color-mixed-line: var(--c-mixed-line);
+  --color-mixed-solid: var(--c-mixed-solid);
+  --color-neutral: var(--c-neutral);
+  --color-on-solid: var(--c-on-solid);
+
+  --color-info-soft: var(--c-info-soft);
+  --color-info-ink: var(--c-info-ink);
+  --color-info-line: var(--c-info-line);
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-canvas text-ink antialiased;
 }

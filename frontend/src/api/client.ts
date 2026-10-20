@@ -1,14 +1,21 @@
+import { filterQuery, qs, type PageFilters } from "../lib/filters";
 import type {
   AnalysisOverview,
   AnalysisRun,
   Codebook,
+  Comparison,
+  Facets,
+  PortfolioCard,
   Quality,
+  ReviewList,
   SummaryOut,
   SyncMode,
   SyncRun,
   SyncRunWithTitle,
   TaggedReview,
   ThemeDraft,
+  ThemeMatchEstimate,
+  ThemeMatchResult,
   ThemeStats,
   Title,
   TitleCreate,
@@ -45,6 +52,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const json = (body: unknown) => JSON.stringify(body);
 
 export const api = {
+  title: (id: number) => request<Title>(`/api/titles/${id}`),
   listTitles: (includeArchived: boolean) =>
     request<Title[]>(`/api/titles?include_archived=${includeArchived}`),
   createTitle: (body: TitleCreate) => request<Title>("/api/titles", { method: "POST", body: json(body) }),
@@ -68,7 +76,21 @@ export const api = {
     request<AnalysisRun>(`/api/titles/${titleId}/analysis/estimate`, { method: "POST", body: json({ kind, app_id: appId ?? null }) }),
   confirmRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/confirm`, { method: "POST" }),
   cancelRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/cancel`, { method: "POST" }),
-  stats: (titleId: number, appId?: number) => request<ThemeStats>(`/api/titles/${titleId}/themes/stats${qs({ app_id: appId })}`),
+  stats: (titleId: number, filters: PageFilters | { app?: number }) =>
+    request<ThemeStats>(`/api/titles/${titleId}/themes/stats${qs(filterQuery({ playtime: [], language: [], ...filters }))}`),
+  reviews: (
+    titleId: number,
+    filters: PageFilters,
+    params: { q?: string; theme?: string; sentiment?: string; overall?: string; sort?: string; page?: number; page_size?: number },
+  ) => request<ReviewList>(`/api/titles/${titleId}/reviews${qs({ ...filterQuery(filters), ...params })}`),
+  facets: (titleId: number, appId?: number) => request<Facets>(`/api/titles/${titleId}/facets${qs({ app_id: appId })}`),
+  portfolio: () => request<{ generated_at: string; titles: PortfolioCard[] }>("/api/portfolio"),
+  compare: (titleIds: number[], range: { from?: string; to?: string }) =>
+    request<Comparison>(`/api/compare${qs({ title_id: titleIds, date_from: range.from, date_to: range.to })}`),
+  estimateThemeMatch: (titleIds: number[]) =>
+    request<ThemeMatchEstimate>("/api/compare/theme-match/estimate", { method: "POST", body: json({ title_ids: titleIds }) }),
+  runThemeMatch: (titleIds: number[]) =>
+    request<ThemeMatchResult>("/api/compare/theme-match", { method: "POST", body: json({ title_ids: titleIds }) }),
   taggedReviews: (
     titleId: number,
     params: { app_id?: number; random?: number; theme?: string; sentiment?: string; overall?: string; page?: number },
@@ -77,8 +99,3 @@ export const api = {
   summary: (titleId: number, appId?: number) => request<SummaryOut | null>(`/api/titles/${titleId}/summary${qs({ app_id: appId })}`),
   quality: (titleId: number, appId?: number) => request<Quality>(`/api/titles/${titleId}/quality${qs({ app_id: appId })}`),
 };
-
-function qs(params: Record<string, string | number | undefined | null>): string {
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
-  return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()}` : "";
-}

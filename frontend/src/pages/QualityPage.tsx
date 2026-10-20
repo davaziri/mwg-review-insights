@@ -22,7 +22,7 @@ export function QualityPage() {
       <div className="mb-5 flex flex-wrap items-end gap-3">
         <div className="mr-auto">
           <h1 className="text-xl font-semibold">Analysis quality</h1>
-          <p className="text-sm text-slate-500">How far to trust the tags, and what each analysis cost.</p>
+          <p className="text-sm text-muted">How far to trust the tags, and what each analysis cost.</p>
         </div>
         <select
           className={`${inputClass} w-64`}
@@ -37,7 +37,7 @@ export function QualityPage() {
           ))}
         </select>
       </div>
-      {quality.isError && <p className="text-sm text-red-700">{quality.error.message}</p>}
+      {quality.isError && <p className="text-sm text-negative-ink">{quality.error.message}</p>}
       {quality.data && <QualityBody q={quality.data} />}
     </div>
   );
@@ -48,10 +48,10 @@ function QualityBody({ q }: { q: Quality }) {
     <>
       <Card title="Agreement check">
         {!q.qa ? (
-          <p className="text-sm text-slate-500">No quality check yet. One runs with every analysis.</p>
+          <p className="text-sm text-muted">No quality check yet. One runs with every analysis.</p>
         ) : (
           <>
-            <p className="mb-3 text-sm text-slate-600">
+            <p className="mb-3 text-sm text-ink-2">
               The analysis model ({q.qa.model}) re-tagged {q.qa.reviews_checked} random reviews without seeing the original tags. Agreement is
               how often both models made the same call on whether a theme is mentioned; kappa corrects that for chance (above 0.6 is good,
               above 0.8 is very good). Sentiment agreement covers reviews where both found the theme. Overall impression agreement is how often
@@ -65,7 +65,7 @@ function QualityBody({ q }: { q: Quality }) {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
-                <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th className="py-1.5 pr-3">Theme</th>
                     <th className="py-1.5 pr-3 text-right">Both tagged</th>
@@ -76,7 +76,7 @@ function QualityBody({ q }: { q: Quality }) {
                     <th className="py-1.5 text-right">Sentiment</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 tabular-nums">
+                <tbody className="divide-y divide-line-soft tabular-nums">
                   {Object.entries(q.qa.themes).map(([key, t]) => (
                     <tr key={key}>
                       <td className="py-1.5 pr-3 font-medium">{t.name}</td>
@@ -84,7 +84,7 @@ function QualityBody({ q }: { q: Quality }) {
                       <td className="py-1.5 pr-3 text-right">{t.primary_only}</td>
                       <td className="py-1.5 pr-3 text-right">{t.qa_only}</td>
                       <td className="py-1.5 pr-3 text-right">{pct(t.presence_agreement)}</td>
-                      <td className={`py-1.5 pr-3 text-right ${t.kappa !== null && t.kappa < 0.6 ? "text-negative" : ""}`}>
+                      <td className={`py-1.5 pr-3 text-right ${t.kappa !== null && t.kappa < 0.6 ? "text-negative-ink" : ""}`}>
                         {t.kappa === null ? "n/a" : t.kappa.toFixed(2)}
                       </td>
                       <td className="py-1.5 text-right">{pct(t.sentiment_agreement)}</td>
@@ -99,7 +99,7 @@ function QualityBody({ q }: { q: Quality }) {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Card title="Quotes">
-          <p className="mb-3 text-sm text-slate-600">
+          <p className="mb-3 text-sm text-ink-2">
             Every quote is checked against the review's own text. Quotes that don't match exactly are dropped and never shown.
           </p>
           <div className="flex flex-wrap gap-6 text-sm">
@@ -114,17 +114,17 @@ function QualityBody({ q }: { q: Quality }) {
             <Big label="Share" value={pct(q.other.share, 1)} />
             <Big label="Limit" value={pct(q.other.threshold)} />
           </div>
-          {q.codebook?.needs_review_reason && <p className="mt-3 text-sm text-amber-800">{q.codebook.needs_review_reason}</p>}
+          {q.codebook?.needs_review_reason && <p className="mt-3 text-sm text-mixed-ink">{q.codebook.needs_review_reason}</p>}
         </Card>
       </div>
 
       {q.other.notes.length > 0 && (
         <Card title="Recent 'other' notes">
-          <ul className="divide-y divide-slate-100 text-sm">
+          <ul className="divide-y divide-line-soft text-sm">
             {q.other.notes.map((n) => (
               <li key={n.recommendation_id} className="py-2">
                 <div>{n.note}</div>
-                <a href={n.url} target="_blank" rel="noreferrer" className="text-xs text-slate-500 hover:text-brand">
+                <a href={n.url} target="_blank" rel="noreferrer" className="text-xs text-muted hover:text-link">
                   Review {n.recommendation_id}, {n.date}
                 </a>
               </li>
@@ -135,11 +135,11 @@ function QualityBody({ q }: { q: Quality }) {
 
       <Card title="Cost log">
         {q.runs.length === 0 ? (
-          <p className="text-sm text-slate-500">No runs yet.</p>
+          <p className="text-sm text-muted">No runs yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="py-1.5 pr-3">Finished</th>
                   <th className="py-1.5 pr-3">Run</th>
@@ -149,7 +149,7 @@ function QualityBody({ q }: { q: Quality }) {
                   <th className="py-1.5 text-right">Actual</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line-soft">
                 {q.runs.map((r) => (
                   <CostRow key={r.id} run={r} />
                 ))}
@@ -166,10 +166,10 @@ function CostRow({ run }: { run: AnalysisRun }) {
   const tone = run.status === "succeeded" ? "green" : run.status === "failed" ? "red" : "slate";
   return (
     <tr className="align-top">
-      <td className="py-1.5 pr-3 text-slate-600">{dateTime(run.finished_at)}</td>
+      <td className="py-1.5 pr-3 text-ink-2">{dateTime(run.finished_at)}</td>
       <td className="py-1.5 pr-3">
         {run.kind === "discovery" ? "Find themes" : "Analyze reviews"}
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-muted">
           {Object.entries(run.usage ?? {})
             .map(([step, u]) => `${STEP_LABELS[step] ?? step}: ${money(u.cost_usd)}`)
             .join(", ")}
@@ -191,7 +191,7 @@ function Big({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-lg font-semibold tabular-nums">{value}</div>
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-muted">{label}</div>
     </div>
   );
 }

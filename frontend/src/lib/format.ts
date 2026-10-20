@@ -43,3 +43,8 @@ export function tokens(n: number): string {
 export function pct(x: number | null | undefined, digits = 0): string {
   return x === null || x === undefined ? "n/a" : `${(x * 100).toFixed(digits)}%`;
 }
+
+/** A share as Steam shows it: rounded down to a whole percent. */
+export function shareFloor(x: number | null | undefined): string {
+  return x === null || x === undefined ? "n/a" : `${Math.floor(x * 100 + 1e-9)}%`;
+}

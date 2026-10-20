@@ -40,10 +40,10 @@ export function TitlesPage() {
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="mr-auto">
-          <h1 className="text-xl font-semibold">Titles</h1>
-          <p className="text-sm text-slate-500">Every tracked Steam title and its review sync status.</p>
+          <h1 className="text-xl font-semibold">Manage titles</h1>
+          <p className="text-sm text-muted">Add, edit or archive tracked Steam titles, and check or start their review syncs.</p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-ink-2">
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
           Show archived
         </label>
@@ -54,17 +54,17 @@ export function TitlesPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+        <div className="mb-4 rounded-md border border-negative-line bg-negative-soft px-3 py-2 text-sm text-negative-ink">{error}</div>
       )}
 
-      {titles.isPending && <p className="text-sm text-slate-500">Loading titles...</p>}
-      {titles.isError && <p className="text-sm text-red-700">Could not load titles: {titles.error.message}</p>}
+      {titles.isPending && <p className="text-sm text-muted">Loading titles...</p>}
+      {titles.isError && <p className="text-sm text-negative-ink">Could not load titles: {titles.error.message}</p>}
 
-      <div className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
         {titles.data?.map((t) => (
           <TitleRow key={t.id} title={t} act={act} onEdit={() => setEditing(t)} />
         ))}
-        {titles.data?.length === 0 && <p className="p-6 text-sm text-slate-500">No titles yet. Add one to start syncing.</p>}
+        {titles.data?.length === 0 && <p className="p-6 text-sm text-muted">No titles yet. Add one to start syncing.</p>}
       </div>
 
       {editing && (
@@ -99,7 +99,7 @@ function TitleRow({ title, act, onEdit }: { title: Title; act: (fn: () => Promis
             <Badge tone={title.status === "released" ? "green" : "blue"}>{STATUS_LABELS[title.status]}</Badge>
             {archived && <Badge>Archived</Badge>}
           </div>
-          <div className="mt-0.5 truncate text-sm text-slate-500">
+          <div className="mt-0.5 truncate text-sm text-muted">
             {details && <span>{details} · </span>}
             <a
               className="hover:underline"
@@ -116,7 +116,7 @@ function TitleRow({ title, act, onEdit }: { title: Title; act: (fn: () => Promis
       <div className="w-full md:w-56">
         {main && <ReviewStats stats={main} />}
         {demo && (
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-muted">
             Demo ({demo.app_id}): {demo.stored_reviews ? `${number(demo.stored_reviews)} reviews` : "no reviews yet"}
           </div>
         )}
@@ -129,8 +129,8 @@ function TitleRow({ title, act, onEdit }: { title: Title; act: (fn: () => Promis
       </div>
 
       <div className="flex items-center gap-2 md:w-52 md:justify-end">
-        <Link to={`/titles/${title.id}/analysis`} className="rounded-md px-2 py-1.5 text-sm font-medium text-brand hover:bg-slate-100">
-          Themes
+        <Link to={`/titles/${title.id}`} className="rounded-md px-2 py-1.5 text-sm font-medium text-link hover:bg-soft">
+          Open
         </Link>
         <Button variant="primary" disabled={busy || archived} onClick={() => act(() => api.syncTitle(title.id))}>
           {running ? "Syncing" : busy ? "Queued" : "Sync now"}
@@ -163,7 +163,7 @@ function TitleRow({ title, act, onEdit }: { title: Title; act: (fn: () => Promis
 
 function HeaderImage({ url }: { url: string | null }) {
   const [failed, setFailed] = useState(false);
-  if (!url || failed) return <div className="h-[60px] w-32 shrink-0 rounded bg-slate-100" />;
+  if (!url || failed) return <div className="h-[60px] w-32 shrink-0 rounded bg-soft" />;
   return <img src={url} alt="" onError={() => setFailed(true)} className="h-[60px] w-32 shrink-0 rounded object-cover" />;
 }
 
@@ -171,18 +171,18 @@ function ReviewStats({ stats }: { stats: AppStats }) {
   const snap = stats.latest_snapshot;
   const steamTotal = snap?.total_reviews ?? null;
   if (stats.stored_reviews === 0 && !steamTotal) {
-    return <div className="text-sm text-slate-500">No reviews yet</div>;
+    return <div className="text-sm text-muted">No reviews yet</div>;
   }
   return (
     <div>
       <div className="flex items-baseline gap-2">
         <span className="text-lg font-semibold">{number(stats.stored_reviews)}</span>
-        <span className="text-sm text-slate-500">reviews</span>
-        <span className="text-sm font-medium text-positive">
+        <span className="text-sm text-muted">reviews</span>
+        <span className="text-sm font-medium text-positive-ink">
           {percent(stats.stored_positive, stats.stored_reviews)} positive
         </span>
       </div>
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-muted">
         {snap?.review_score_desc && <span>{snap.review_score_desc}</span>}
         {steamTotal !== null && steamTotal !== stats.stored_reviews && (
           <span> · Steam reports {number(steamTotal)}</span>
@@ -197,20 +197,20 @@ function SyncStatus({ stats, showApp }: { stats: AppStats; showApp: boolean }) {
   const active = stats.active_run;
   if (active) {
     return (
-      <div className="text-blue-800">
+      <div className="text-info-ink">
         {label}
         {active.status === "queued" ? "Queued" : `Syncing, page ${active.pages_fetched + 1}`}
-        {active.mode === "full" && <span className="text-slate-500"> (full)</span>}
+        {active.mode === "full" && <span className="text-muted"> (full)</span>}
       </div>
     );
   }
   const last = stats.last_run;
-  if (!last) return <div className="text-slate-500">{label}Never synced</div>;
+  if (!last) return <div className="text-muted">{label}Never synced</div>;
   if (last.status === "failed") {
     return (
-      <div className="text-negative" title={last.error ?? ""}>
+      <div className="text-negative-ink" title={last.error ?? ""}>
         {label}Last sync failed {timeAgo(last.finished_at)}
-        <div className="text-xs text-slate-500">Next sync resumes where it stopped</div>
+        <div className="text-xs text-muted">Next sync resumes where it stopped</div>
       </div>
     );
   }
@@ -221,12 +221,12 @@ function SyncStatus({ stats, showApp }: { stats: AppStats; showApp: boolean }) {
   ].filter(Boolean);
   return (
     <div title={dateTime(last.finished_at)}>
-      <span className="text-slate-700">
+      <span className="text-ink-2">
         {label}Synced {timeAgo(last.finished_at)}
       </span>
-      <div className="text-xs text-slate-500">{changes.length ? changes.join(", ") : "No changes"}</div>
+      <div className="text-xs text-muted">{changes.length ? changes.join(", ") : "No changes"}</div>
       {last.warning && (
-        <div className="text-xs text-mixed" title={last.warning}>
+        <div className="text-xs text-mixed-ink" title={last.warning}>
           Check sync log
         </div>
       )}
@@ -240,17 +240,17 @@ function MoreMenu({ items }: { items: (MenuItem | false)[] }) {
   const ref = useRef<HTMLDetailsElement>(null);
   return (
     <details ref={ref} className="relative">
-      <summary className="cursor-pointer list-none rounded-md px-2 py-1.5 text-slate-500 hover:bg-slate-100" aria-label="More actions">
+      <summary className="cursor-pointer list-none rounded-md px-2 py-1.5 text-muted hover:bg-soft" aria-label="More actions">
         •••
       </summary>
-      <div className="absolute right-0 z-10 mt-1 w-40 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+      <div className="absolute right-0 z-10 mt-1 w-40 rounded-md border border-line bg-surface py-1 shadow-lg">
         {items.filter((i): i is MenuItem => !!i).map((item) => (
           <button
             key={item.label}
             type="button"
             disabled={item.disabled}
-            className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50 disabled:opacity-50 ${
-              item.danger ? "text-red-700" : "text-slate-700"
+            className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-subtle disabled:opacity-50 ${
+              item.danger ? "text-negative-ink" : "text-ink-2"
             }`}
             onClick={() => {
               ref.current?.removeAttribute("open");

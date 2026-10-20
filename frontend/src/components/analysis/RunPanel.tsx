@@ -77,18 +77,18 @@ export function RunPanel({ overview }: { overview: AnalysisOverview }) {
         {overview.reviews.pending !== null && <Stat label="Waiting for analysis" value={overview.reviews.pending} />}
       </div>
       {!enoughReviews && (
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-muted">
           Not enough reviews for themes yet: finding themes needs at least {overview.min_reviews_for_discovery} reviews with text.
         </p>
       )}
-      {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-3 text-sm text-negative-ink">{error}</p>}
 
       {active && <ActiveRun run={active} onCancel={() => cancelMut.mutate(active.id)} canceling={cancelMut.isPending} />}
 
       {overview.runs.filter((r) => r.status !== "estimated" && r.id !== active?.id).length > 0 && (
         <div className="mt-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent runs</h3>
-          <ul className="divide-y divide-slate-100 text-sm">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Recent runs</h3>
+          <ul className="divide-y divide-line-soft text-sm">
             {overview.runs
               .filter((r) => r.status !== "estimated" && r.id !== active?.id)
               .slice(0, 5)
@@ -96,15 +96,15 @@ export function RunPanel({ overview }: { overview: AnalysisOverview }) {
                 <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
                   <span className="font-medium">{KIND[r.kind]}</span>
                   <Badge tone={STATUS_TONE[r.status]}>{r.status[0].toUpperCase() + r.status.slice(1)}</Badge>
-                  <span className="text-slate-500">{dateTime(r.finished_at ?? r.created_at)}</span>
-                  <span className="text-slate-500">
+                  <span className="text-muted">{dateTime(r.finished_at ?? r.created_at)}</span>
+                  <span className="text-muted">
                     estimated {money(r.est_cost_usd)}, actual {money(r.actual_cost_usd)}
                   </span>
                   {r.kind === "analysis" && r.status === "succeeded" && (
-                    <span className="text-slate-500">{r.reviews_tagged.toLocaleString()} reviews tagged</span>
+                    <span className="text-muted">{r.reviews_tagged.toLocaleString()} reviews tagged</span>
                   )}
                   {(r.error || r.warning) && (
-                    <span className={`w-full text-xs ${r.error ? "text-negative" : "text-slate-500"}`}>{r.error ?? r.warning}</span>
+                    <span className={`w-full text-xs ${r.error ? "text-negative-ink" : "text-muted"}`}>{r.error ?? r.warning}</span>
                   )}
                 </li>
               ))}
@@ -132,7 +132,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div className="text-lg font-semibold tabular-nums">{value.toLocaleString()}</div>
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-muted">{label}</div>
     </div>
   );
 }
@@ -141,7 +141,7 @@ function ActiveRun({ run, onCancel, canceling }: { run: AnalysisRun; onCancel: (
   const batch = run.step ? run.batches?.[run.step] : undefined;
   const waitingOnBatch = batch && !batch.ingested;
   return (
-    <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+    <div className="mt-4 rounded-md border border-info-line bg-info-soft p-3 text-sm text-info-ink">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold">{KIND[run.kind]}</span>
         <span>

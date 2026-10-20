@@ -57,20 +57,20 @@ export function CodebookPanel({ titleId, codebookId, approvedId }: { titleId: nu
         )
       }
     >
-      <p className="mb-3 text-xs text-slate-500">
+      <p className="mb-3 text-xs text-muted">
         {cb.created_by}, {dateTime(cb.created_at)}
         {cb.note && <>. {cb.note}</>}
         {cb.status === "draft" && approvedId && approvedId !== cb.id && <>. Tagging still uses the approved version until you approve this one.</>}
       </p>
       {cb.needs_review_reason && (
-        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{cb.needs_review_reason}</div>
+        <div className="mb-3 rounded-md border border-mixed-line bg-mixed-soft px-3 py-2 text-sm text-mixed-ink">{cb.needs_review_reason}</div>
       )}
       {cb.status === "draft" && !editing && (
-        <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        <div className="mb-3 rounded-md border border-line bg-subtle px-3 py-2 text-sm text-ink-2">
           Review these themes before approving: rename, merge, split, add or delete them with Edit themes. Saving edits creates a new version.
         </div>
       )}
-      {approve.isError && <p className="mb-3 text-sm text-red-700">{approve.error.message}</p>}
+      {approve.isError && <p className="mb-3 text-sm text-negative-ink">{approve.error.message}</p>}
 
       {editing ? (
         <Editor
@@ -96,15 +96,15 @@ export function CodebookPanel({ titleId, codebookId, approvedId }: { titleId: nu
 function ThemeView({ theme, codebook }: { theme: Theme; codebook: Codebook }) {
   const [open, setOpen] = useState(false);
   return (
-    <li className="rounded-md border border-slate-200 p-3">
+    <li className="rounded-md border border-line p-3">
       <div className="flex items-baseline gap-2">
         <span className="font-semibold">{theme.name}</span>
-        <span className="text-xs text-slate-400">{theme.key}</span>
-        <button type="button" className="ml-auto text-xs text-brand hover:underline" onClick={() => setOpen(!open)}>
+        <span className="text-xs text-faint">{theme.key}</span>
+        <button type="button" className="ml-auto text-xs text-link hover:underline" onClick={() => setOpen(!open)}>
           {open ? "Less" : "Details"}
         </button>
       </div>
-      <p className="text-sm text-slate-700">{theme.definition}</p>
+      <p className="text-sm text-ink-2">{theme.definition}</p>
       {open && (
         <div className="mt-2 space-y-1 text-sm">
           {theme.include_notes && (
@@ -120,9 +120,9 @@ function ThemeView({ theme, codebook }: { theme: Theme; codebook: Codebook }) {
           {theme.example_review_ids.map((id) => {
             const ex = codebook.examples?.[id];
             return ex ? (
-              <blockquote key={id} className="border-l-2 border-slate-200 pl-3 text-xs text-slate-600">
+              <blockquote key={id} className="border-l-2 border-line pl-3 text-xs text-ink-2">
                 {ex.excerpt}{" "}
-                <a className="text-brand hover:underline" href={ex.url} target="_blank" rel="noreferrer">
+                <a className="text-link hover:underline" href={ex.url} target="_blank" rel="noreferrer">
                   Review {id}
                 </a>
               </blockquote>
@@ -213,11 +213,11 @@ function Editor({
           Merge selected ({selected.size})
         </Button>
         <Button onClick={add}>Add theme</Button>
-        <span className="text-xs text-slate-500">{themes.length} themes. Tick two or more to merge them.</span>
+        <span className="text-xs text-muted">{themes.length} themes. Tick two or more to merge them.</span>
       </div>
       <ol className="space-y-3">
         {themes.map((t) => (
-          <li key={t.uid} className="rounded-md border border-slate-200 p-3">
+          <li key={t.uid} className="rounded-md border border-line p-3">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -258,8 +258,8 @@ function Editor({
           Save and approve
         </Button>
       </div>
-      {invalid && <p className="mt-2 text-xs text-slate-500">Every theme needs a name and a definition.</p>}
-      {save.isError && <p className="mt-2 text-sm text-red-700">{save.error.message}</p>}
+      {invalid && <p className="mt-2 text-xs text-muted">Every theme needs a name and a definition.</p>}
+      {save.isError && <p className="mt-2 text-sm text-negative-ink">{save.error.message}</p>}
     </div>
   );
 }

@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/brand/logo.svg" />
     <title>Review Insights</title>
+    <script>
+      // Pick light or dark before the app loads, so the page doesn't flash the wrong colors.
+      try {
+        var pref = localStorage.getItem("mwg-theme");
+        var dark = pref === "dark" || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        document.documentElement.style.background = dark ? "#0f151b" : "#f6f7f9";
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

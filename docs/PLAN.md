@@ -198,3 +198,14 @@ Phase 2 live results on Duck Paradox (331 reviews, 284 with text, 47 with almost
 - Second run after adding the overall impression: $0.12 (tagging $0.02, QA $0.04, summary $0.05). All 5 disagreements now carry a positive overall impression quoting the words the reviewer used. QA on a new random 20: theme agreement 96%, kappa 0.73, sentiment agreement 64%, overall impression agreement 90%. 628 of 633 quotes verified.
 - Total spent on Duck Paradox, both discovery attempts and both runs: $0.43.
 - Spot check round 2, same 20 reviews: 20 of 20 right.
+
+Phase 3 notes (decided while building):
+
+- The home page is the portfolio; title management moved to "Manage titles". A title's page has Overview, Reviews and Themes setup tabs, and each theme has its own page.
+- Filters are URL parameters (app, range or from/to, vote, playtime, lang, ea, deck, dev), so a view can be shared, and Phase 4 exports can read the same parameters. "Last 30 days" style ranges are stored as the range, not fixed dates, so a bookmark stays current.
+- Review search uses an SQLite FTS5 index with the trigram tokenizer (migration 0004), which matches inside words and in languages without spaces. Terms under 3 characters, and other databases, fall back to a plain substring match. SQLite batch migrations that rebuild the reviews table drop its triggers, so such a migration must call `install_search_index` again.
+- "Shared or similar themes" in the compare view: codebooks are per title, so themes are matched across titles by the analysis model on request (estimate shown first), stored in `theme_matches` per set of approved codebooks (migration 0005).
+- Portfolio "30-day trend": reviews written in the last 30 days against the 30 days before (count and % recommended), plus weekly volume for 12 weeks.
+- Dark mode uses named color tokens (surface, ink, muted, line, positive-soft and so on) defined in brand.ts for both modes, instead of fixed Tailwind palette colors.
+- Chart colors were checked with a color-vision validator. Green against red failed for color-blind readers, so positive is a teal-green and negative a brick red; in dark mode the pair is just under the target, so the volume chart separates them by position too (recommended above the line, not recommended below). The compare view's 4 title colors are a validated set.
+- Recharts 3.10.1 (and its react-is peer) added, as listed in the brief's stack.

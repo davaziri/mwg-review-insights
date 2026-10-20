@@ -92,8 +92,8 @@ def _snapshot(session: Session, title_id: int, app_id: int) -> dict | None:
 
 
 def _theme_highlights(session: Session, title: Title, app_id: int) -> dict | None:
-    """Most praised and most criticized themes (by positive and negative mentions) under the
-    approved codebook, counting each review's current tag."""
+    """Most praised and most criticized themes under the approved codebook, counting each
+    review's current tag."""
     cb = approved_codebook(session, title.id)
     if cb is None:
         return None
@@ -115,8 +115,10 @@ def _theme_highlights(session: Session, title: Title, app_id: int) -> dict | Non
         c[sentiment] += n
     for c in counts.values():
         c["share"] = _share(c["mentions"], analyzed)
-    praised = max((c for c in counts.values() if c["positive"]), key=lambda c: (c["positive"], -c["negative"]), default=None)
-    criticized = max((c for c in counts.values() if c["negative"]), key=lambda c: (c["negative"], -c["positive"]), default=None)
+    # Ranked by how many more positive than negative mentions (and the reverse), so a theme that
+    # is widely discussed but splits players doesn't count as the most praised.
+    praised = max((c for c in counts.values() if c["positive"] > c["negative"]), key=lambda c: (c["positive"] - c["negative"], c["mentions"]), default=None)
+    criticized = max((c for c in counts.values() if c["negative"] > c["positive"]), key=lambda c: (c["negative"] - c["positive"], c["mentions"]), default=None)
     return {"codebook_version": cb.version, "analyzed": analyzed, "top_praised": praised, "top_criticized": criticized}
 
 

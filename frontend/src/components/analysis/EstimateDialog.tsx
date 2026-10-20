@@ -26,12 +26,12 @@ export function EstimateDialog({
   const title = run.kind === "discovery" ? "Find themes: cost estimate" : "Analyze reviews: cost estimate";
   return (
     <Dialog title={title} onClose={onClose} wide>
-      <p className="mb-3 text-sm text-slate-600">
+      <p className="mb-3 text-sm text-ink-2">
         Nothing has been sent to the model yet. Check the estimate, then confirm to run it.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="py-1.5 pr-3">Step</th>
               <th className="py-1.5 pr-3">Model</th>
@@ -41,7 +41,7 @@ export function EstimateDialog({
               <th className="py-1.5 text-right">Cost</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line-soft">
             {steps.map((s) => (
               <StepRow key={s.step} step={s} />
             ))}
@@ -57,13 +57,13 @@ export function EstimateDialog({
         </table>
       </div>
       {!!run.estimate?.notes.length && (
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-500">
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted">
           {run.estimate.notes.map((n) => (
             <li key={n}>{n}</li>
           ))}
         </ul>
       )}
-      {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-3 text-sm text-negative-ink">{error}</p>}
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose} disabled={busy}>
           Don't run
@@ -81,12 +81,12 @@ function StepRow({ step }: { step: EstimateStep }) {
     <tr>
       <td className="py-2 pr-3">
         {STEP_LABELS[step.step] ?? step.step}
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-muted">
           {step.reviews !== undefined && `${step.reviews.toLocaleString()} reviews`}
           {step.batch && (step.reviews !== undefined ? ", " : "") + "batch (half price)"}
         </div>
       </td>
-      <td className="py-2 pr-3 text-xs text-slate-600">{step.model}</td>
+      <td className="py-2 pr-3 text-xs text-ink-2">{step.model}</td>
       <td className="py-2 pr-3 text-right tabular-nums">{step.requests}</td>
       <td className="py-2 pr-3 text-right tabular-nums">{tokens(step.input_tokens)}</td>
       <td className="py-2 pr-3 text-right tabular-nums">{tokens(step.output_tokens)}</td>

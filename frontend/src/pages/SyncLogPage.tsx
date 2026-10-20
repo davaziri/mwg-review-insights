@@ -17,18 +17,18 @@ export function SyncLogPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold">Sync log</h1>
-      <p className="mb-5 text-sm text-slate-500">
+      <p className="mb-5 text-sm text-muted">
         Every review sync, newest first. Nightly syncs run automatically; full crawls run weekly and check for deleted reviews.
       </p>
 
-      {runs.isPending && <p className="text-sm text-slate-500">Loading...</p>}
-      {runs.isError && <p className="text-sm text-red-700">Could not load the sync log: {runs.error.message}</p>}
-      {runs.data?.length === 0 && <p className="text-sm text-slate-500">No syncs yet.</p>}
+      {runs.isPending && <p className="text-sm text-muted">Loading...</p>}
+      {runs.isError && <p className="text-sm text-negative-ink">Could not load the sync log: {runs.error.message}</p>}
+      {runs.data?.length === 0 && <p className="text-sm text-muted">No syncs yet.</p>}
 
       {!!runs.data?.length && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-line bg-subtle text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-3 py-2">Queued</th>
                 <th className="px-3 py-2">Title</th>
@@ -42,7 +42,7 @@ export function SyncLogPage() {
                 <th className="px-3 py-2">Notes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line-soft">
               {runs.data.map((r) => (
                 <RunRow key={r.id} run={r} />
               ))}
@@ -58,14 +58,14 @@ function RunRow({ run }: { run: SyncRunWithTitle }) {
   const note = run.error ?? run.warning ?? (run.resumed_from_id ? `Resumed run #${run.resumed_from_id}` : "");
   return (
     <tr className="align-top">
-      <td className="whitespace-nowrap px-3 py-2 text-slate-600">{dateTime(run.queued_at)}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-ink-2">{dateTime(run.queued_at)}</td>
       <td className="px-3 py-2">
         <div className="font-medium">{run.title_name}</div>
-        <div className="text-xs text-slate-500">App {run.app_id}</div>
+        <div className="text-xs text-muted">App {run.app_id}</div>
       </td>
-      <td className="px-3 py-2 text-slate-600">
+      <td className="px-3 py-2 text-ink-2">
         {run.mode === "full" ? "Full" : "Incremental"}
-        <div className="text-xs text-slate-500">{run.trigger === "schedule" ? "Nightly" : "Manual"}</div>
+        <div className="text-xs text-muted">{run.trigger === "schedule" ? "Nightly" : "Manual"}</div>
       </td>
       <td className="px-3 py-2">
         <Badge tone={STATUS_TONE[run.status]}>{run.status[0].toUpperCase() + run.status.slice(1)}</Badge>
@@ -75,7 +75,7 @@ function RunRow({ run }: { run: SyncRunWithTitle }) {
       <td className="px-3 py-2 text-right tabular-nums">{number(run.updated_count)}</td>
       <td className="px-3 py-2 text-right tabular-nums">{number(run.deleted_count)}</td>
       <td className="px-3 py-2 text-right tabular-nums">{run.steam_total === null ? "" : number(run.steam_total)}</td>
-      <td className={`max-w-xs px-3 py-2 text-xs ${run.error ? "text-negative" : "text-slate-500"}`}>{note}</td>
+      <td className={`max-w-xs px-3 py-2 text-xs ${run.error ? "text-negative-ink" : "text-muted"}`}>{note}</td>
     </tr>
   );
 }

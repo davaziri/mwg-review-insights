@@ -73,7 +73,7 @@ export function TitleFormDialog({
           <input className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
 
-        {save.isError && <p className="mb-3 text-sm text-red-700">{save.error.message}</p>}
+        {save.isError && <p className="mb-3 text-sm text-negative-ink">{save.error.message}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
