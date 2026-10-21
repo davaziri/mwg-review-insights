@@ -44,3 +44,26 @@ jobs:
       - run: npm ci
       - name: Type check and build
         run: npm run build
+
+  # Builds and starts the app with Docker Compose the way a server does, then checks that the
+  # pages load and that a PDF report can be printed inside the image.
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start
+        run: |
+          echo "AUTH_MODE=local" > .env
+          docker compose up -d --build --wait
+      - name: Check the app
+        run: |
+          curl -fsS localhost:8000/api/health
+          curl -fsS localhost:8000/ | grep -q 'id="root"'
+          curl -fsS localhost:8000/api/titles | grep -q 'Tombwater'
+          curl -fsS -o portfolio.pdf localhost:8000/api/portfolio/export.pdf
+          head -c 4 portfolio.pdf | grep -q '%PDF'
+          docker compose ps --status running --services | grep -qx worker
+      - name: Show logs
+        if: always()
+        run: docker compose logs --no-color | tail -n 100

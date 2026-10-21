@@ -192,26 +192,27 @@ This runs the app on one small Linux server with HTTPS. Any provider works (Digi
    ```
 4. **Get the app and configure it**:
    ```bash
-   git clone https://github.com/davaziri/mwg-review-insights.git /opt/mwg && cd /opt/mwg
-   cp .env.example .env && nano .env
+   sudo git clone https://github.com/davaziri/mwg-review-insights.git /opt/mwg
+   sudo chown -R $USER /opt/mwg && cd /opt/mwg
+   cp .env.example .env && chmod 600 .env && nano .env
    ```
    Set at least `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_DOMAINS`, `ADMIN_EMAILS` and `PUBLIC_URL=https://insights.midwestgames.com`. Leave `AUTH_MODE` unset. Set up Google sign-in as described above, with the redirect address on this name.
-5. **Start it**: `docker compose up -d --build`. The database is created and migrated on start. The app listens on port 8000 on the server only.
+5. **Start it**: `sudo docker compose up -d --build` (the first build takes several minutes). The database is created and migrated on start. The app listens on port 8000 on the server only.
 6. **Add HTTPS** with Caddy, a free web server that gets and renews certificates by itself:
    ```bash
-   sudo apt install -y caddy
+   sudo apt update && sudo apt install -y caddy
    echo 'insights.midwestgames.com {
        reverse_proxy localhost:8000
    }' | sudo tee /etc/caddy/Caddyfile
    sudo systemctl reload caddy
    ```
    Open https://insights.midwestgames.com and sign in.
-7. **Back up the database** every night (it's one file). For example, with `sudo apt install -y sqlite3` and this line in `sudo crontab -e`:
+7. **Back up the database** every night (it's one file). For example, run `sudo apt install -y sqlite3 && mkdir -p /opt/mwg/backups`, then add this line in `sudo crontab -e`:
    ```
    30 4 * * * sqlite3 /opt/mwg/data/mwg.db ".backup /opt/mwg/backups/mwg-$(date +\%u).db"
    ```
    That keeps a week of daily copies. Copy them off the server now and then (or use your provider's disk snapshots).
-8. **Update** to a new version: `cd /opt/mwg && git pull && docker compose up -d --build`. Migrations run on start and keep all data.
+8. **Update** to a new version: `cd /opt/mwg && git pull && sudo docker compose up -d --build`. Migrations run on start and keep all data.
 
 ## Settings
 
