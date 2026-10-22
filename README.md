@@ -183,7 +183,7 @@ Measured on real titles (October 2026):
 
 What that means going forward:
 
-- **A new title** costs roughly $0.25 to $0.30 per 300 reviews to set up (find themes plus the first analysis). Tagging itself scales at about $0.08 per 1,000 reviews; the quality check and summary add about $0.10 per run.
+- **A new title** costs roughly $0.25 to $0.30 per 300 reviews to set up (find themes plus the first analysis). Tagging itself scales at about $0.08 per 1,000 reviews; the quality check and summary add about $0.10 per run. The language check and translation cost under a cent per 300 reviews (Duck Paradox, all 331 reviews: $0.007 to $0.008), once per review.
 - **Nightly analysis** costs about $0.15 to $0.25 per title per month at current review volumes, mostly the weekly summary. The Themes setup page shows the forecast for each title. Nothing runs nightly unless an admin switches it on, and each night is capped by `NIGHTLY_ANALYSIS_MAX_USD`.
 - **Hosting** on a small cloud server is typically $5 to $15 a month (provider's price).
 

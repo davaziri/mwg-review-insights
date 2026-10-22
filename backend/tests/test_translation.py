@@ -26,6 +26,7 @@ REVIEWS = [
     make_review(4, T0 + 3 * DAY, text="战斗系统很棒。画面也不错。", language="schinese"),
     make_review(5, T0 + 4 * DAY, text="10/10", language="russian"),  # no language to speak of
     make_review(6, T0 + 5 * DAY, text="", language="german"),  # no text at all
+    make_review(7, T0 + 6 * DAY, text="...!!", language="koreana"),  # no words
 ]
 
 
@@ -60,18 +61,18 @@ def test_steam_varieties_are_kept_when_the_text_agrees():
 def test_languages_are_checked_and_translated(api, session, session_factory, settings, fake_llm):
     add(session, REVIEWS)
     status = api.get("/api/titles/1/languages").json()
-    assert (status["unchecked"], status["translated"], status["active_run"]) == (5, 0, None)  # the review with no text is skipped
+    assert (status["unchecked"], status["translated"], status["active_run"]) == (6, 0, None)  # the review with no text is skipped
 
     est = api.post("/api/titles/1/analysis/estimate", json={"kind": "translation"}).json()
     assert [s["step"] for s in est["estimate"]["steps"]] == ["translation"]
-    assert est["kind"] == "translation" and est["reviews_in_scope"] == 5 and est["est_cost_usd"] > 0
+    assert est["kind"] == "translation" and est["reviews_in_scope"] == 6 and est["est_cost_usd"] > 0
     assert fake_llm.calls == []  # nothing is sent before an admin confirms
     api.post(f"/api/analysis-runs/{est['id']}/confirm")
     drain(session_factory, settings, fake_llm)
 
     run = api.get(f"/api/analysis-runs/{est['id']}").json()
     assert run["status"] == "succeeded" and run["reviews_failed"] == 0
-    assert run["details"]["translation"] == {"planned": 5, "checked": 5, "translated": 3}
+    assert run["details"]["translation"] == {"planned": 6, "checked": 6, "translated": 3}
     assert "translate_review_ids" not in run["details"] and run["usage"]["translation"]["cost_usd"] > 0
 
     reviews = by_id(api)
@@ -81,13 +82,14 @@ def test_languages_are_checked_and_translated(api, session, session_factory, set
     assert (reviews["3"]["language"], reviews["3"]["text_en"] is not None) == ("spanish", True)  # Steam's variety kept
     assert (reviews["4"]["language"], reviews["4"]["text_en"] is not None) == ("schinese", True)
     assert (reviews["5"]["language"], reviews["5"]["text_en"]) == ("russian", None)  # nothing to translate; Steam's setting stays
-    assert all(reviews[k]["language_checked"] for k in "12345") and not reviews["6"]["language_checked"]
+    assert (reviews["7"]["language"], reviews["7"]["text_en"]) == ("koreana", None)  # no words, nothing to translate
+    assert all(reviews[k]["language_checked"] for k in "123457") and not reviews["6"]["language_checked"]
 
     # Filters and the filter bar go by the language the text is written in.
     assert set(by_id(api, language="english")) == {"1"}
     assert set(by_id(api, language="spanish")) == {"3"}
     facets = {f["code"]: f["count"] for f in api.get("/api/titles/1/facets").json()["languages"]}
-    assert facets == {"english": 1, "latam": 1, "spanish": 1, "schinese": 1, "russian": 1, "german": 1}
+    assert facets == {"english": 1, "latam": 1, "spanish": 1, "schinese": 1, "russian": 1, "german": 1, "koreana": 1}
 
     # Exports carry both languages and the translation.
     rows = list(csv.reader(io.StringIO(api.get("/api/titles/1/export.csv").content.decode("utf-8-sig"))))
@@ -125,7 +127,7 @@ def test_a_review_left_untranslated_is_tried_again_alone_then_left_for_later(ses
     run = check_languages(session, session_factory, settings, fake_llm)
 
     assert run.status == "succeeded" and run.reviews_failed == 1
-    assert run.details["translation"] == {"planned": 5, "checked": 4, "translated": 2}
+    assert run.details["translation"] == {"planned": 6, "checked": 5, "translated": 2}
     assert len(run.details["retried_translation_ids"]) == 3
     copied = session.scalar(select(Review).where(Review.recommendation_id == "3"))
     assert copied.text_en.startswith("[English] ")  # the copy was refused and the retry stored a real one

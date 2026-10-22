@@ -163,7 +163,8 @@ def ingest(session: Session, reviews: Sequence[Review], result: LLMResult, model
         if detected not in LANGUAGE_CODES:
             failed.append(review)
             continue
-        language = resolve_language(detected, review.language)
+        # Text with no words at all (".", emoji) has no language, whatever the answer says.
+        language = resolve_language(detected, review.language) if _words(review.display_text or "") else None
         english = strip_em_dashes((entry.get("english") or "").strip())
         if language not in (None, "english") and (not english or is_copy(review.display_text or "", english)):
             failed.append(review)
