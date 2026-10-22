@@ -98,7 +98,7 @@ def test_languages_are_checked_and_translated(api, session, session_factory, set
     assert (body["1"][lang], body["1"][steam], body["1"][english]) == ("English", "Spanish (Spain)", "")
     assert body["2"][lang] == "Spanish (Latin America)" and body["2"][english].startswith("[English] El juego")
 
-    assert api.get("/api/titles/1/languages").json() == {"app_id": APP, "unchecked": 0, "translated": 3, "active_run": None}
+    assert api.get("/api/titles/1/languages").json() == {"app_id": APP, "unchecked": 0, "translated": 3, "automatic": True, "active_run": None}
     again = api.post("/api/titles/1/analysis/estimate", json={"kind": "translation"})
     assert again.status_code == 400 and "already" in again.json()["detail"]
 
@@ -153,3 +153,42 @@ def test_analysis_checks_languages_first(session, session_factory, settings, fak
     assert run.status == "succeeded", run.error
     tagging = next(c for c in fake_llm.calls if "Tag each of these reviews" in c.user and 'id="99"' in c.user)
     assert 'id="99" vote="recommended" language="latam"' in tagging.user
+
+
+def test_every_title_is_checked_automatically_under_the_limit(session, session_factory, settings, fake_llm, title):
+    from app.alerts import find_notices
+    from app.analysis.auto_translate import auto_translate
+    from app.models import AnalysisRun
+
+    other = Title(name="Duck Paradox", steam_app_id=2058150, status="released")
+    session.add(other)
+    session.commit()
+    add(session, REVIEWS)
+    upsert_reviews(session, other.id, 2058150, [make_review(500, T0, text="Muy divertido, pero el juego es corto", language="english")], seen_at=utcnow())
+    session.commit()
+
+    settings.auto_translate = False
+    assert auto_translate(session, settings, fake_llm) == []  # switched off
+
+    settings.auto_translate = True
+    report = auto_translate(session, settings, fake_llm)
+    assert len(report) == 2 and all("started" in line for line in report)
+    runs = session.scalars(select(AnalysisRun).where(AnalysisRun.kind == "translation")).all()
+    assert {(r.trigger, r.status) for r in runs} == {("auto", "queued")}
+    assert auto_translate(session, settings, fake_llm) == []  # already running
+    for _ in range(5):
+        process_analysis(session_factory, settings, lambda: fake_llm)
+    session.expire_all()
+    assert unchecked_reviews(session, title.id, APP) == [] and unchecked_reviews(session, other.id, 2058150) == []
+    assert auto_translate(session, settings, fake_llm) == []  # nothing left
+
+    # A check over the limit waits for an admin, once, and raises an alert.
+    add(session, [make_review(600, T0 + 30 * DAY, text="Juego muy bueno pero dificil", language="spanish")])
+    settings.translation_max_usd = 0.0
+    report = auto_translate(session, settings, fake_llm)
+    assert len(report) == 1 and "waiting for an admin" in report[0]
+    assert auto_translate(session, settings, fake_llm) == []  # not estimated again while it waits
+    waiting = session.scalar(select(AnalysisRun).where(AnalysisRun.status == "estimated"))
+    assert waiting.trigger == "auto" and "Reviews tab" in waiting.warning
+    notices = [n for n in find_notices(session, settings, utcnow()) if n.kind == "needs_confirmation"]
+    assert len(notices) == 1 and notices[0].subject.startswith("Language check needs an admin: Tombwater")

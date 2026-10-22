@@ -180,7 +180,7 @@ export interface AnalysisRun {
   status: "estimated" | "queued" | "running" | "succeeded" | "failed" | "canceled";
   step: string | null;
   mode: "direct" | "batch";
-  trigger: "manual" | "nightly";
+  trigger: "manual" | "nightly" | "auto";
   requested_by: string | null;
   confirmed_by: string | null;
   estimate: { steps: EstimateStep[]; notes: string[]; prompt_version: string } | null;
@@ -526,5 +526,7 @@ export interface LanguageStatus {
   /** Reviews with text whose language hasn't been checked (or was edited since). */
   unchecked: number;
   translated: number;
+  /** New reviews are checked automatically after each sync (AUTO_TRANSLATE). */
+  automatic: boolean;
   active_run: AnalysisRun | null;
 }

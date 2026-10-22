@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     model_analysis: str = "claude-sonnet-5-5"
     # Checks which language each review is written in and translates the non-English ones.
     model_translation: str = "claude-haiku-5-5"
+    # Check every title's new reviews automatically (at worker start and after each sync). A check
+    # estimated above TRANSLATION_MAX_USD (US dollars, per title) waits for an admin instead.
+    auto_translate: bool = True
+    translation_max_usd: float = 0.25
     tagging_effort: str = "low"
     analysis_effort: str = "high"
     # Extra or overriding prices, USD per million tokens, e.g.

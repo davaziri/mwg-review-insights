@@ -102,7 +102,8 @@ Steam labels each review with the reviewer's Steam language setting, which is of
 - Filters, charts, the analysis and exports all go by the language the review is written in. When the text and the Steam setting are the same language, Steam's regional variety is kept (Spanish from Spain or Latin America, Portuguese from Portugal or Brazil). The language label's tooltip shows the Steam setting when the two differ.
 - Translations appear under the review, labeled as machine-written. They are never used as quotes, and search looks at what the reviewer wrote.
 - A review is checked once, and again only if its author edits it. Text with no language to speak of ("10/10", emoji) keeps the Steam setting.
-- On a title's **Reviews** tab, admins can also run the check on its own (**Check languages and translate**), before any themes exist. Nightly analysis includes it.
+- **It runs on its own for every title**: when the worker starts and after every sync, any review not checked yet is checked, for every title and demo, analyzed or not. Each check starts by itself when its estimate is at or under `TRANSLATION_MAX_USD` ($0.25 per title; a few hundred reviews cost under a cent); a bigger one, such as a newly added title with thousands of reviews, waits for an admin and raises an alert. `AUTO_TRANSLATE=false` turns this off.
+- On a title's **Reviews** tab, admins can also start the check by hand (**Check languages and translate**), and it is the first step of every analysis run.
 
 Every run starts as a **cost estimate** (input tokens counted by Anthropic's token counter, output estimated) and only runs after you confirm it. Actual tokens and cost are logged per run on the **Analysis quality** page. Runs with 100 or more reviews go through the Batches API at half price; smaller ones call the API directly.
 
@@ -236,6 +237,8 @@ All settings go in `.env` (see [.env.example](.env.example)). Never commit `.env
 | `ANTHROPIC_API_KEY` (or `MWG_ANTHROPIC_API_KEY`) | empty | Needed for analysis |
 | `MODEL_TAGGING`, `MODEL_ANALYSIS` | `claude-haiku-5-5`, `claude-sonnet-5-5` | Tagging model, and the model for themes, quality checks and summaries |
 | `MODEL_TRANSLATION` | `claude-haiku-5-5` | Checks which language each review is written in and translates the ones not in English |
+| `AUTO_TRANSLATE` | `true` | Check the language of every title's new reviews automatically, at worker start and after each sync |
+| `TRANSLATION_MAX_USD` | `0.25` | An automatic language check estimated above this (per title) waits for an admin |
 | `TAGGING_EFFORT`, `ANALYSIS_EFFORT` | `low`, `high` | How much each model reasons before answering |
 | `MODEL_PRICES` | built in | Override or add per-model prices (JSON) |
 | `DIRECT_MAX_REVIEWS` | `100` | Runs with at least this many reviews use the Batches API (half price) |

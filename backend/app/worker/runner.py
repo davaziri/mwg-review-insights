@@ -1,5 +1,6 @@
 """Background worker: runs queued syncs, advances confirmed analysis runs, queues the nightly
-sync for every active title, starts nightly analysis where it is switched on, and sends alerts.
+sync for every active title, starts nightly analysis where it is switched on, checks the language
+of new reviews (at start and after each sync), and sends alerts.
 
 The worker is the only process that crawls Steam reviews, and it runs one sync at a time, so
 the client's request throttle holds across all titles.
@@ -17,6 +18,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.alerts import check_alerts
+from app.analysis.auto_translate import auto_translate
 from app.analysis.llm import AnthropicLLM, LLMClient, LLMNotConfigured
 from app.analysis.nightly import nightly_analysis
 from app.analysis.runs import process_analysis
@@ -134,9 +136,21 @@ def main() -> None:
         "Worker started. Nightly sync at '%s', nightly analysis at '%s' (%s)", settings.sync_cron, settings.analysis_cron, settings.sync_timezone
     )
     last_alert_check = 0.0
+    check_languages = settings.auto_translate  # once at start, then after each sync
     try:
         while True:
-            process_queue(SessionLocal, settings, client)
+            if process_queue(SessionLocal, settings, client):
+                check_languages = settings.auto_translate
+            if check_languages:
+                check_languages = False
+                try:
+                    with SessionLocal() as session:
+                        for line in auto_translate(session, settings, llm_factory()):
+                            log.info("Language check: %s", line)
+                except LLMNotConfigured:
+                    log.warning("Language check skipped: no Anthropic API key")
+                except Exception:  # never stops syncing; tried again after the next sync
+                    log.exception("Language check failed")
             process_analysis(SessionLocal, settings, llm_factory)
             if time.monotonic() - last_alert_check >= ALERT_CHECK_SECONDS:
                 last_alert_check = time.monotonic()

@@ -180,7 +180,13 @@ def language_status(title_id: int, app_id: int | None = None, session: Session =
         .where(Review.title_id == title.id, Review.app_id == app, Review.deleted_at.is_(None), Review.text_en.is_not(None))
     )
     active = active_run(session, title.id, app)
-    return {"app_id": app, "unchecked": unchecked, "translated": translated, "active_run": run_out(active) if active else None}
+    return {
+        "app_id": app,
+        "unchecked": unchecked,
+        "translated": translated,
+        "automatic": get_settings().auto_translate,
+        "active_run": run_out(active) if active else None,
+    }
 
 
 # Codebooks

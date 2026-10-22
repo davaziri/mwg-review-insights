@@ -60,7 +60,7 @@ function AnalysesSection() {
                     </Link>
                   </td>
                   <td className="px-3 py-2">{RUN_KIND[r.kind]}</td>
-                  <td className="px-3 py-2 text-ink-2">{r.trigger === "nightly" ? "Nightly" : (r.confirmed_by ?? r.requested_by ?? "")}</td>
+                  <td className="px-3 py-2 text-ink-2">{r.trigger === "nightly" ? "Nightly" : r.trigger === "auto" ? "Automatic" : (r.confirmed_by ?? r.requested_by ?? "")}</td>
                   <td className="px-3 py-2">
                     <Badge tone={RUN_TONE[r.status]}>{RUN_WORD[r.status]}</Badge>
                   </td>

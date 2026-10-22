@@ -55,9 +55,10 @@ export function LanguageCheck({ titleId, appId }: { titleId: number; appId: numb
           <span className="min-w-60 flex-1">
             {n.toLocaleString()} {n === 1 ? "review hasn't" : "reviews haven't"} had {n === 1 ? "its" : "their"} language checked. Until then{" "}
             {n === 1 ? "it shows" : "they show"} the reviewer's Steam language setting, which isn't always the language the review is written
-            in, and no English translation.
+            in, and no English translation.{" "}
+            {s.automatic ? "New reviews are checked automatically after each sync." : ""}
           </span>
-          <AdminOnly otherwise={<span className="text-xs">An admin can check them from this page.</span>}>
+          <AdminOnly otherwise={<span className="text-xs">{s.automatic ? "" : "An admin can check them from this page."}</span>}>
             <Button variant="primary" disabled={estimateMut.isPending} onClick={() => estimateMut.mutate()}>
               {estimateMut.isPending ? "Working out the cost..." : "Check languages and translate"}
             </Button>

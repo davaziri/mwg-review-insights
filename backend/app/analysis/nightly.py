@@ -58,7 +58,7 @@ def summary_due(session: Session, settings: Settings, title: Title, app_id: int,
     return bool(tagged_since)
 
 
-def _sync_busy(session: Session, title_id: int, app_id: int) -> bool:
+def sync_busy(session: Session, title_id: int, app_id: int) -> bool:
     return bool(
         session.scalar(
             select(SyncRun.id).where(SyncRun.title_id == title_id, SyncRun.app_id == app_id, SyncRun.status.in_(ACTIVE_STATUSES)).limit(1)
@@ -79,7 +79,7 @@ def nightly_analysis(session: Session, settings: Settings, llm: LLMClient, now: 
             continue
         for app_id in title.app_ids:
             label = title.name if app_id == title.steam_app_id else f"{title.name} demo"
-            if _sync_busy(session, title.id, app_id):
+            if sync_busy(session, title.id, app_id):
                 report.append(f"{label}: skipped, its sync is still running (tried again tomorrow)")
                 continue
             if active_run(session, title.id, app_id):

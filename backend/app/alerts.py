@@ -2,7 +2,8 @@
 
 The worker checks every few minutes for:
 - a sync or analysis run that failed,
-- a nightly analysis waiting for an admin (its estimate was over the nightly limit),
+- a nightly analysis or automatic language check waiting for an admin (its estimate was over
+  its limit),
 - a title whose % recommended fell by more than ALERT_DROP_POINTS over ALERT_DROP_DAYS.
 
 Each alert is stored once (by its dedupe key) and listed in the run log, whether or not Slack or
@@ -97,9 +98,24 @@ def find_notices(session: Session, settings: Settings, now: datetime) -> list[No
             )
         )
 
-    waiting = select(AnalysisRun).where(AnalysisRun.status == "estimated", AnalysisRun.trigger == "nightly", AnalysisRun.created_at >= since)
+    waiting = select(AnalysisRun).where(
+        AnalysisRun.status == "estimated", AnalysisRun.trigger.in_(("nightly", "auto")), AnalysisRun.created_at >= since
+    )
     for run in session.scalars(waiting):
         title = titles[run.title_id]
+        if run.kind == "translation":
+            notices.append(
+                Notice(
+                    "needs_confirmation",
+                    title.id,
+                    f"needs_confirmation:{run.id}",
+                    f"Language check needs an admin: {_app_label(title, run.app_id)}",
+                    f"Checking the language of {run.reviews_in_scope} reviews of {_app_label(title, run.app_id)} and translating them is "
+                    f"estimated at ${run.est_cost_usd:.2f}, over the automatic limit of ${settings.translation_max_usd:.2f}, so it did not "
+                    "start. An admin can start it from the title's Reviews tab." + _link(settings, f"/titles/{title.id}/reviews"),
+                )
+            )
+            continue
         notices.append(
             Notice(
                 "needs_confirmation",

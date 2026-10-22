@@ -346,7 +346,14 @@ def estimate_analysis(
 
 
 def estimate_translation(
-    session: Session, settings: Settings, llm: LLMClient, title: Title, app_id: int, requested_by: str | None = None
+    session: Session,
+    settings: Settings,
+    llm: LLMClient,
+    title: Title,
+    app_id: int,
+    requested_by: str | None = None,
+    *,
+    trigger: str = "manual",
 ) -> AnalysisRun:
     """Price checking the language of every review not checked yet, without analyzing them."""
     _check_app(title, app_id)
@@ -361,6 +368,7 @@ def estimate_translation(
         kind="translation",
         status="estimated",
         mode="batch" if batch else "direct",
+        trigger=trigger,
         requested_by=requested_by,
         reviews_in_scope=len(unchecked),
         details={"translate_review_ids": [r.id for r in unchecked], "prompt_version": PROMPT_VERSION},
