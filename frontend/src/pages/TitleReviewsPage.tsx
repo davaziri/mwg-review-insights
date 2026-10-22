@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 
+import { LanguageCheck } from "../components/LanguageCheck";
 import { ReviewList } from "../components/ReviewList";
 import { useTitle } from "../components/TitleShell";
 import { inputClass, selectClass } from "../components/ui";
@@ -10,7 +11,7 @@ const OVERALL = { positive: "Positive overall", mixed: "Mixed overall", negative
 
 /** Every review of the title, searchable. */
 export function TitleReviewsPage() {
-  const { title, filters } = useTitle();
+  const { title, appId, filters } = useTitle();
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const sort = params.get("sort") ?? "newest";
@@ -35,6 +36,7 @@ export function TitleReviewsPage() {
 
   return (
     <div>
+      <LanguageCheck titleId={title.id} appId={appId} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-60 flex-1">
           <input
@@ -64,7 +66,8 @@ export function TitleReviewsPage() {
       </div>
       <p className="mb-3 text-xs text-muted">
         Search finds reviews containing every word (in any language); put a phrase in quotes to match it exactly. Matches are shaded blue.
-        Short words of one or two letters are matched anywhere in the text.
+        Short words of one or two letters are matched anywhere in the text. Search looks at what the reviewer wrote, not the English
+        translations.
       </p>
       <ReviewList
         titleId={title.id}

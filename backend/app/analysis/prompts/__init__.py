@@ -7,7 +7,7 @@ from functools import cache
 from pathlib import Path
 from string import Template
 
-PROMPT_VERSION = "2026-10-20.4"
+PROMPT_VERSION = "2026-10-22.1"
 _DIR = Path(__file__).parent
 
 
@@ -69,6 +69,12 @@ def tagging_schema(theme_keys: list[str]) -> dict:
             "gist_en": _STR,
         }
     )
+    return _obj({"reviews": {"type": "array", "items": review}})
+
+
+def translation_schema(language_codes: list[str]) -> dict:
+    """The language check for a group of reviews: each review's language and English translation."""
+    review = _obj({"review_id": _STR, "language": {"type": "string", "enum": language_codes}, "english": _STR})
     return _obj({"reviews": {"type": "array", "items": review}})
 
 

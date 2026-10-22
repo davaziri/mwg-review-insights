@@ -7,6 +7,7 @@ import type {
   Comparison,
   AutoAnalysis,
   Facets,
+  LanguageStatus,
   Me,
   Person,
   PortfolioCard,
@@ -94,7 +95,7 @@ export const api = {
   saveCodebook: (titleId: number, body: { parent_id: number | null; note: string; themes: ThemeDraft[]; approve: boolean }) =>
     request<Codebook>(`/api/titles/${titleId}/codebooks`, { method: "POST", body: json(body) }),
   approveCodebook: (id: number) => request<Codebook>(`/api/codebooks/${id}/approve`, { method: "POST" }),
-  estimate: (titleId: number, kind: "discovery" | "analysis", appId?: number) =>
+  estimate: (titleId: number, kind: AnalysisRun["kind"], appId?: number) =>
     request<AnalysisRun>(`/api/titles/${titleId}/analysis/estimate`, { method: "POST", body: json({ kind, app_id: appId ?? null }) }),
   confirmRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/confirm`, { method: "POST" }),
   cancelRun: (id: number) => request<AnalysisRun>(`/api/analysis-runs/${id}/cancel`, { method: "POST" }),
@@ -106,6 +107,8 @@ export const api = {
     params: { q?: string; theme?: string; sentiment?: string; overall?: string; sort?: string; page?: number; page_size?: number },
   ) => request<ReviewList>(`/api/titles/${titleId}/reviews${qs({ ...filterQuery(filters), ...params })}`),
   facets: (titleId: number, appId?: number) => request<Facets>(`/api/titles/${titleId}/facets${qs({ app_id: appId })}`),
+  languageStatus: (titleId: number, appId?: number) =>
+    request<LanguageStatus>(`/api/titles/${titleId}/languages${qs({ app_id: appId })}`),
   portfolio: () => request<{ generated_at: string; titles: PortfolioCard[] }>("/api/portfolio"),
   compare: (titleIds: number[], range: { from?: string; to?: string }) =>
     request<Comparison>(`/api/compare${qs({ title_id: titleIds, date_from: range.from, date_to: range.to })}`),

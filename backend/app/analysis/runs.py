@@ -7,8 +7,10 @@ later one, so a long batch never blocks review syncing.
 
 Run kinds:
 - discovery: the analysis model proposes a codebook from a stratified sample (saved as a draft).
-- analysis: tag every review that has no tag for its current version under the approved codebook,
-  re-tag a QA sample with the analysis model, then write the executive summary.
+- analysis: check the language of reviews not checked yet (translating the ones not in English),
+  tag every review that has no tag for its current version under the approved codebook, re-tag a
+  QA sample with the analysis model, then write the executive summary.
+- translation: only the language check and translation, for a title's Reviews page.
 """
 
 import logging
@@ -20,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.analysis import summary as summary_step
+from app.analysis import translation
 from app.analysis.aggregate import Filters, load_rows
 from app.analysis.codebooks import approved_codebook, themes_for
 from app.analysis.discovery import (
@@ -157,6 +160,25 @@ def _learned_output_per_review(session: Session, settings: Settings) -> tuple[in
     return settings.tagging_output_tokens_per_review, False
 
 
+def _translation_step(settings: Settings, llm: LLMClient, reviews: Sequence[Review], *, batch: bool) -> dict:
+    model = settings.model_translation
+    requests = len(translation.groups(reviews))
+    base = llm.count_input_tokens(translation.translation_request([], model=model, effort=settings.tagging_effort))
+    review_tokens = 0
+    for chunk in _chunks(reviews, TOKEN_COUNT_CHUNK):
+        review_tokens += llm.count_input_tokens(translation.translation_request(chunk, model=model, effort=settings.tagging_effort)) - base
+    output = sum(translation.estimated_output_tokens(r) for r in reviews)
+    return _step("translation", model, requests, base * requests + review_tokens, output, batch=batch, settings=settings, reviews=len(reviews))
+
+
+def _translation_note(reviews: Sequence[Review]) -> str:
+    likely = sum(1 for r in reviews if (r.language or "") != "english")
+    return (
+        f"Checks which language {len(reviews)} reviews are actually written in and translates the ones not in English "
+        f"(about {likely}, going by their Steam language setting). A review is checked once, and again only if it is edited."
+    )
+
+
 def _check_app(title: Title, app_id: int) -> None:
     if app_id not in title.app_ids:
         raise RunError(f"App {app_id} does not belong to {title.name}.")
@@ -220,13 +242,17 @@ def estimate_analysis(
     themes = themes_for(session, codebook.id)
     prepare_missing(session, title.id)
     pending = pending_reviews(session, title.id, app_id, codebook.id)
+    unchecked = translation.unchecked_reviews(session, title.id, app_id)
     n = len(pending)
-    batch = n >= settings.direct_max_reviews
+    batch = max(n, len(unchecked)) >= settings.direct_max_reviews
     per = settings.tagging_reviews_per_request
     tag_requests = -(-n // per)
 
     steps: list[dict] = []
     notes: list[str] = []
+    if unchecked:
+        steps.append(_translation_step(settings, llm, unchecked, batch=batch))
+        notes.append(_translation_note(unchecked))
     tag_input = 0
     if n:
         base = llm.count_input_tokens(tagging_request(title, themes, [], model=settings.model_tagging, effort=settings.tagging_effort))
@@ -236,9 +262,10 @@ def estimate_analysis(
             review_tokens += llm.count_input_tokens(req) - base
         tag_input = base * tag_requests + review_tokens
     per_review, learned = _learned_output_per_review(session, settings)
-    steps.append(
-        _step("tagging", settings.model_tagging, tag_requests, tag_input, n * per_review, batch=batch, settings=settings, reviews=n)
-    )
+    if n:
+        steps.append(
+            _step("tagging", settings.model_tagging, tag_requests, tag_input, n * per_review, batch=batch, settings=settings, reviews=n)
+        )
 
     qa_n = qa_count(n, settings) if qa else 0
     qa_ids = choose_qa_sample([r.id for r in pending], qa_n, seed=random.randrange(1 << 30)) if qa_n else []
@@ -305,6 +332,7 @@ def estimate_analysis(
         reviews_in_scope=n,
         details={
             "review_ids": [r.id for r in pending],
+            "translate_review_ids": [r.id for r in unchecked],
             "qa_review_ids": qa_ids,
             "prompt_version": PROMPT_VERSION,
             "skip_qa": not qa_n,
@@ -312,6 +340,40 @@ def estimate_analysis(
         },
     )
     _apply_estimate(run, steps, notes)
+    session.add(run)
+    session.commit()
+    return run
+
+
+def estimate_translation(
+    session: Session, settings: Settings, llm: LLMClient, title: Title, app_id: int, requested_by: str | None = None
+) -> AnalysisRun:
+    """Price checking the language of every review not checked yet, without analyzing them."""
+    _check_app(title, app_id)
+    prepare_missing(session, title.id)
+    unchecked = translation.unchecked_reviews(session, title.id, app_id)
+    if not unchecked:
+        raise RunError("Every review with text already has its language checked.")
+    batch = len(unchecked) >= settings.direct_max_reviews
+    run = AnalysisRun(
+        title_id=title.id,
+        app_id=app_id,
+        kind="translation",
+        status="estimated",
+        mode="batch" if batch else "direct",
+        requested_by=requested_by,
+        reviews_in_scope=len(unchecked),
+        details={"translate_review_ids": [r.id for r in unchecked], "prompt_version": PROMPT_VERSION},
+    )
+    _apply_estimate(
+        run,
+        [_translation_step(settings, llm, unchecked, batch=batch)],
+        [
+            _translation_note(unchecked),
+            "Uses the Batches API (half price, usually done within an hour)." if batch else "Calls the API directly (small run).",
+            "Input tokens are counted by Anthropic's token counter; output tokens are an estimate.",
+        ],
+    )
     session.add(run)
     session.commit()
     return run
@@ -364,6 +426,8 @@ def _finish(session: Session, run: AnalysisRun) -> None:
     run.finished_at = utcnow()
     if run.kind == "analysis":
         run.reviews_failed = max(0, run.reviews_in_scope - run.reviews_tagged)
+    elif run.kind == "translation":
+        run.reviews_failed = max(0, run.reviews_in_scope - (run.details or {}).get("translation", {}).get("checked", 0))
     session.commit()
 
 
@@ -410,6 +474,51 @@ def _discovery(session: Session, settings: Settings, llm: LLMClient, run: Analys
     for w in warnings:
         _append_warning(run, w)
     _finish(session, run)
+
+
+def _translation(session: Session, settings: Settings, llm: LLMClient, run: AnalysisRun) -> bool:
+    """Returns True when every planned review has been attempted."""
+    planned = run.details.get("translate_review_ids", [])
+    model = settings.model_translation
+
+    def build(group: list[Review]) -> LLMRequest:
+        return translation.translation_request(group, model=model, effort=settings.tagging_effort)
+
+    if run.mode == "direct":
+        for group in translation.groups(translation.still_unchecked(session, planned)):
+            result = llm.complete(build(group))
+            add_usage(run, settings, "translation", model, result.usage, batch=False)
+            translation.ingest(session, group, result, model)
+            session.commit()
+    else:
+        info = (run.batches or {}).get("translation")
+        if info is None:
+            todo = translation.still_unchecked(session, planned)
+            if todo:
+                _submit(session, settings, llm, run, "translation", translation.groups(todo), build)
+                return False
+        elif not info["ingested"]:
+            if not _batch_ready(session, settings, llm, run, info):
+                return False
+            for custom_id, result in llm.batch_results(info["id"]):
+                group = _load_reviews(session, info["groups"].get(custom_id, []))
+                add_usage(run, settings, "translation", model, result.usage, batch=True)
+                translation.ingest(session, group, result, model)
+            _set(run, "batches", "translation", {**info, "ingested": True})
+            session.commit()
+
+    # Anything the grouped requests missed gets one more try on its own.
+    retried = set(run.details.get("retried_translation_ids", []))
+    for review in [r for r in translation.still_unchecked(session, planned) if r.id not in retried]:
+        result = llm.complete(build([review]))
+        add_usage(run, settings, "translation", model, result.usage, batch=False)
+        translation.ingest(session, [review], result, model)
+        retried.add(review.id)
+        _set(run, "details", "retried_translation_ids", sorted(retried))
+        session.commit()
+    _set(run, "details", "translation", translation.counts(session, planned))
+    session.commit()
+    return True
 
 
 def _tagging(session, settings, llm, run, title, codebook, themes) -> bool:
@@ -595,7 +704,10 @@ def advance(session: Session, settings: Settings, llm: LLMClient, run: AnalysisR
     if run.status == "queued":
         run.status = "running"
         run.started_at = utcnow()
-        run.step = "discovery" if run.kind == "discovery" else "tagging"
+        if run.kind == "discovery":
+            run.step = "discovery"
+        else:
+            run.step = "translation" if (run.details or {}).get("translate_review_ids") else "tagging"
         session.commit()
     if run.status != "running":
         return
@@ -603,6 +715,14 @@ def advance(session: Session, settings: Settings, llm: LLMClient, run: AnalysisR
     try:
         if run.kind == "discovery":
             _discovery(session, settings, llm, run, title)
+            return
+        if run.step == "translation":
+            if not _translation(session, settings, llm, run):
+                return
+            run.step = "tagging"
+            session.commit()
+        if run.kind == "translation":
+            _finish(session, run)
             return
         codebook = session.get(Codebook, run.codebook_id)
         themes = themes_for(session, codebook.id)

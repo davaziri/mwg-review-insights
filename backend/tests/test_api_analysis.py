@@ -45,7 +45,7 @@ def test_analysis_flow_through_the_api(api, session, session_factory, settings, 
 
     # Analysis.
     est = api.post("/api/titles/1/analysis/estimate", json={"kind": "analysis"}).json()
-    assert [s["step"] for s in est["estimate"]["steps"]] == ["tagging", "qa", "summary"]
+    assert [s["step"] for s in est["estimate"]["steps"]] == ["translation", "tagging", "qa", "summary"]
     assert est["reviews_in_scope"] == 54
     api.post(f"/api/analysis-runs/{est['id']}/confirm")
     drain(session_factory, settings, fake_llm)

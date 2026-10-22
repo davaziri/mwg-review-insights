@@ -104,7 +104,10 @@ def facets(title_id: int, app_id: int | None = None, session: Session = Depends(
         ).where(*scope)
     ).one()
     languages = session.execute(
-        select(Review.language, func.count()).where(*scope).group_by(Review.language).order_by(func.count().desc())
+        select(Review.effective_language, func.count())
+        .where(*scope)
+        .group_by(Review.effective_language)
+        .order_by(func.count().desc())
     ).all()
     bands = dict(session.execute(select(Review.playtime_band, func.count()).where(*scope).group_by(Review.playtime_band)).all())
     return {

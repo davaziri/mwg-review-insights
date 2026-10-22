@@ -3,10 +3,17 @@ import { money, tokens } from "../../lib/format";
 import { Button, Dialog } from "../ui";
 
 export const STEP_LABELS: Record<string, string> = {
+  translation: "Check languages and translate",
   discovery: "Find themes",
   tagging: "Tag reviews",
   qa: "Quality check",
   summary: "Executive summary",
+};
+
+export const RUN_KIND: Record<AnalysisRun["kind"], string> = {
+  discovery: "Find themes",
+  analysis: "Analyze reviews",
+  translation: "Check languages and translate",
 };
 
 export function EstimateDialog({
@@ -23,7 +30,7 @@ export function EstimateDialog({
   onClose: () => void;
 }) {
   const steps = run.estimate?.steps ?? [];
-  const title = run.kind === "discovery" ? "Find themes: cost estimate" : "Analyze reviews: cost estimate";
+  const title = `${RUN_KIND[run.kind]}: cost estimate`;
   return (
     <Dialog title={title} onClose={onClose} wide>
       <p className="mb-3 text-sm text-ink-2">

@@ -38,12 +38,25 @@ const SENTIMENT_WORD = { positive: "positive", negative: "negative", mixed: "mix
 
 const LONG_REVIEW = 1200;
 
+/** Where the language label comes from, for its tooltip. */
+function languageNote(review: TaggedReview): string {
+  const steam = languageName(review.steam_language);
+  if (!review.language_checked) {
+    return `The reviewer's Steam language setting (${steam}). The text hasn't been checked yet, so the review may be written in another language.`;
+  }
+  if (review.steam_language && review.steam_language !== review.language) {
+    return `Written in ${languageName(review.language)}. The reviewer's Steam language setting is ${steam}.`;
+  }
+  return "The language the review is written in.";
+}
+
 export function ReviewCard({ review, focusTheme }: { review: TaggedReview; focusTheme?: string }) {
   const o = review.overall;
   const overallSpan = o && o.quote_status === "ok" && o.quote_start !== null && o.quote_end !== null ? { start: o.quote_start, end: o.quote_end } : null;
   const matches = (review.matches ?? []).map(([start, end]) => ({ start, end }));
   const parts = segments(review.text, review.mentions, overallSpan, matches);
-  const long = review.text.length > LONG_REVIEW || review.text.split("\n").length > 16;
+  const isLong = (text: string) => text.length > LONG_REVIEW || text.split("\n").length > 16;
+  const long = isLong(review.text) || (review.text_en !== null && isLong(review.text_en));
   const [expanded, setExpanded] = useState(false);
   const [showReply, setShowReply] = useState(false);
   // In a theme's drill-down, that theme's chip comes first.
@@ -55,7 +68,7 @@ export function ReviewCard({ review, focusTheme }: { review: TaggedReview; focus
         <Badge tone={review.voted_up ? "green" : "red"}>{review.voted_up ? "Recommended" : "Not recommended"}</Badge>
         {review.date && <span>{review.date}</span>}
         {review.playtime_at_review_hours !== null && <span>{review.playtime_at_review_hours}h at review</span>}
-        <span>{languageName(review.language)}</span>
+        <span title={languageNote(review)}>{languageName(review.language)}</span>
         {review.early_access && <span>Early Access</span>}
         {review.steam_deck && <span>Steam Deck</span>}
         {review.votes_up ? <span>{review.votes_up} found it helpful</span> : null}
@@ -87,13 +100,21 @@ export function ReviewCard({ review, focusTheme }: { review: TaggedReview; focus
           );
         })}
       </p>
+      {review.text_en && (
+        <div className="mt-3 border-l-2 border-line-strong pl-3">
+          <div className="mb-0.5 text-xs font-medium text-muted">English translation (machine-written)</div>
+          <p className={`whitespace-pre-wrap text-sm leading-relaxed text-ink-2 ${long && !expanded ? "max-h-40 overflow-hidden" : ""}`}>
+            {review.text_en}
+          </p>
+        </div>
+      )}
       {long && (
         <button type="button" className="mt-1 text-xs font-medium text-link hover:underline" onClick={() => setExpanded(!expanded)}>
           {expanded ? "Show less" : "Show full review"}
         </button>
       )}
 
-      {review.gist_en && (
+      {review.gist_en && !review.text_en && (
         <p className="mt-2 rounded bg-subtle px-3 py-2 text-xs text-ink-2">
           <span className="font-medium">English gist (machine-written, not a quote):</span> {review.gist_en}
         </p>

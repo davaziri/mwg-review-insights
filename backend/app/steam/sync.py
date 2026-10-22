@@ -133,6 +133,8 @@ def upsert_reviews(
             continue
         if review.timestamp_updated != fields["timestamp_updated"]:
             stats.updated += 1
+            # The language check and translation were of the old text.
+            review.text_language = review.text_en = None
         if review.deleted_at is not None:
             review.deleted_at = None
             stats.restored += 1

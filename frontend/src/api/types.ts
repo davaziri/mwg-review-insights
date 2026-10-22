@@ -176,7 +176,7 @@ export interface AnalysisRun {
   title_id: number;
   app_id: number;
   codebook_id: number | null;
-  kind: "discovery" | "analysis";
+  kind: "discovery" | "analysis" | "translation";
   status: "estimated" | "queued" | "running" | "succeeded" | "failed" | "canceled";
   step: string | null;
   mode: "direct" | "batch";
@@ -199,7 +199,13 @@ export interface AnalysisRun {
   quotes_checked: number;
   quotes_dropped: number;
   batches: Record<string, { id: string; submitted_at: string; requests: number; ingested: boolean }> | null;
-  details: { qa?: QAResults; other_rate?: number; prompt_version?: string } | null;
+  details: {
+    qa?: QAResults;
+    other_rate?: number;
+    prompt_version?: string;
+    /** The language check: reviews planned, checked, and given an English translation. */
+    translation?: { planned: number; checked: number; translated: number };
+  } | null;
   warning: string | null;
   error: string | null;
   created_at: string;
@@ -274,7 +280,13 @@ export interface TaggedReview {
   app_id: number;
   text: string;
   voted_up: boolean;
+  /** The language the text is written in once checked; until then the reviewer's Steam setting. */
   language: string;
+  /** The reviewer's Steam language setting, which is often not the language they wrote in. */
+  steam_language: string | null;
+  language_checked: boolean;
+  /** Machine translation, for reviews not written in English. */
+  text_en: string | null;
   date: string | null;
   playtime_at_review_hours: number | null;
   playtime_band: string;
@@ -507,4 +519,12 @@ export interface AlertRow {
   channels: string[];
   error: string | null;
   created_at: string;
+}
+
+export interface LanguageStatus {
+  app_id: number;
+  /** Reviews with text whose language hasn't been checked (or was edited since). */
+  unchecked: number;
+  translated: number;
+  active_run: AnalysisRun | null;
 }

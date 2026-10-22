@@ -18,7 +18,7 @@ def review_block(review: Review, *, max_chars: int | None = None, details: bool 
         if minutes is not None:
             attrs.append(f'playtime_hours="{minutes / 60:.1f}"')
         attrs.append(f'written_during_early_access="{"yes" if review.written_during_early_access else "no"}"')
-    attrs.append(f'language="{escape(review.language or "unknown")}"')
+    attrs.append(f'language="{escape(review.effective_language or "unknown")}"')
     return f"<review {' '.join(attrs)}>\n{text}\n</review>"
 
 

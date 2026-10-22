@@ -3,6 +3,10 @@
 Tagging: a review mentions a theme when it contains one of the theme's keywords; the quote is
 the sentence containing the keyword, copied from the review text. Individual reviews can be made
 to return a paraphrased quote, be left out, or trigger a refusal.
+
+Language check: a review is Chinese when it has Chinese characters, Spanish when it has one of a
+few Spanish words, and English otherwise; whatever the reviewer's Steam setting says. Non-English
+reviews get "[English] " plus the text as their translation.
 """
 
 import json
@@ -13,6 +17,8 @@ from app.analysis.llm import LLMRequest, LLMResult
 from app.analysis.pricing import Usage
 
 REVIEW_RE = re.compile(r'<review id="([^"]+)"[^>]*language="([^"]*)">\n(.*?)\n</review>', re.S)
+TRANSLATE_RE = re.compile(r'<review id="([^"]+)" steam_language="([^"]*)">\n(.*?)\n</review>', re.S)
+SPANISH_WORDS = ("juego", "muy", "pero", "controles")
 
 THEMES = {
     "combat_feel": ("Combat feel", ["combat", "fight", "战斗"]),
@@ -36,6 +42,7 @@ class FakeLLM:
         self.omit_ids: set[str] = set()  # left out of grouped answers (fine on their own)
         self.refuse_ids: set[str] = set()  # any request containing these is declined
         self.other_ids: set[str] = set()  # flagged as raising an uncovered point
+        self.untranslated_ids: set[str] = set()  # language check returns no translation
         self.canceled: list[str] = []
 
     # LLMClient
@@ -78,6 +85,11 @@ class FakeLLM:
             out = self._theme_match(request)
         elif "strengths" in props:
             out = self._summary(request)
+        elif "english" in props["reviews"]["items"]["properties"]:
+            reviews = TRANSLATE_RE.findall(request.user)
+            if any(rid in self.refuse_ids for rid, _, _ in reviews):
+                return LLMResult(None, Usage(input_tokens=100), request.model, "refusal", error="declined by the model (category: None)")
+            out = self._translation(reviews, single=len(reviews) == 1)
         else:
             reviews = REVIEW_RE.findall(request.user)
             if any(rid in self.refuse_ids for rid, _, _ in reviews):
@@ -131,6 +143,23 @@ class FakeLLM:
                     "gist_en": "" if language == "english" else "A short English summary of the review.",
                 }
             )
+        return {"reviews": out}
+
+    def _translation(self, reviews: list[tuple[str, str, str]], single: bool) -> dict:
+        out = []
+        for rid, _steam, text in reviews:
+            if rid in self.omit_ids and not single:
+                continue
+            if re.search(r"[\u4e00-\u9fff]", text):
+                language = "schinese"
+            elif any(w in text.lower().split() for w in SPANISH_WORDS):
+                language = "latam"
+            elif not re.search(r"[a-zA-Z]", text):
+                language = "none"
+            else:
+                language = "english"
+            english = "" if language in ("english", "none") or rid in self.untranslated_ids else f"[English] {text} — machine"
+            out.append({"review_id": rid, "language": language, "english": english})
         return {"reviews": out}
 
     def _overall(self, sentences: list[str], paraphrase: bool) -> dict:

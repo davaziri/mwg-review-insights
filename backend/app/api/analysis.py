@@ -14,7 +14,8 @@ from app.analysis.codebooks import CodebookError, ThemeInput, approve, approved_
 from app.analysis.llm import AnthropicLLM, LLMClient, LLMNotConfigured
 from app.analysis.nightly import expected_monthly_cost
 from app.analysis.prep import PLAYTIME_BAND_LABELS
-from app.analysis.runs import RunError, active_run, cancel, confirm, estimate_analysis, estimate_discovery
+from app.analysis.runs import RunError, active_run, cancel, confirm, estimate_analysis, estimate_discovery, estimate_translation
+from app.analysis.translation import unchecked_clauses
 from app.analysis.tagging import pending_reviews
 from app.api.common import filters_dep, resolve_app, review_brief, serialize_reviews, title_or_404
 from app.auth import actor
@@ -76,7 +77,7 @@ def codebook_out(session: Session, cb: Codebook, with_themes: bool = True) -> di
 
 def run_out(run: AnalysisRun) -> dict:
     details = dict(run.details or {})
-    for big in ("review_ids", "qa_review_ids", "sample_review_ids", "retried_review_ids"):
+    for big in ("review_ids", "qa_review_ids", "sample_review_ids", "retried_review_ids", "translate_review_ids", "retried_translation_ids"):
         details.pop(big, None)
     batches = {k: {kk: vv for kk, vv in v.items() if kk != "groups"} for k, v in (run.batches or {}).items()}
     return {
@@ -167,6 +168,21 @@ def analysis_overview(title_id: int, app_id: int | None = None, session: Session
     }
 
 
+@router.get("/titles/{title_id}/languages")
+def language_status(title_id: int, app_id: int | None = None, session: Session = Depends(get_session)):
+    """How many of an app's reviews still need their language checked, for the Reviews page."""
+    title = title_or_404(session, title_id)
+    app = resolve_app(title, app_id)
+    unchecked = session.scalar(select(func.count()).select_from(Review).where(*unchecked_clauses(title.id, app)))
+    translated = session.scalar(
+        select(func.count())
+        .select_from(Review)
+        .where(Review.title_id == title.id, Review.app_id == app, Review.deleted_at.is_(None), Review.text_en.is_not(None))
+    )
+    active = active_run(session, title.id, app)
+    return {"app_id": app, "unchecked": unchecked, "translated": translated, "active_run": run_out(active) if active else None}
+
+
 # Codebooks
 
 
@@ -250,7 +266,7 @@ def auto_analysis(title_id: int, session: Session = Depends(get_session)):
 
 
 class EstimateIn(BaseModel):
-    kind: Literal["discovery", "analysis"]
+    kind: Literal["discovery", "analysis", "translation"]
     app_id: int | None = None
 
 
@@ -265,6 +281,8 @@ def create_estimate(
     try:
         if body.kind == "discovery":
             run = estimate_discovery(session, settings, llm, title, app, requested_by=actor(request))
+        elif body.kind == "translation":
+            run = estimate_translation(session, settings, llm, title, app, requested_by=actor(request))
         else:
             run = estimate_analysis(session, settings, llm, title, app, requested_by=actor(request))
     except RunError as exc:

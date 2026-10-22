@@ -73,7 +73,7 @@ def review_filter_clauses(title_id: int, f: Filters) -> list:
     if f.playtime_bands:
         clauses.append(Review.playtime_band.in_(f.playtime_bands))
     if f.languages:
-        clauses.append(Review.language.in_(f.languages))
+        clauses.append(Review.effective_language.in_(f.languages))
     if f.early_access is not None:
         clauses.append(Review.written_during_early_access.is_(f.early_access))
     if f.steam_deck is not None:
@@ -100,7 +100,7 @@ def load_rows(session: Session, title_id: int, codebook_id: int | None, f: Filte
         Review.timestamp_created,
         Review.voted_up,
         Review.playtime_band,
-        Review.language,
+        Review.effective_language,
         Review.written_during_early_access,
         Review.primarily_steam_deck,
         Review.refunded,

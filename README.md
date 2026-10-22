@@ -49,7 +49,7 @@ Open http://localhost:8000. Two containers run from one image: `app` (API, web a
 - **Portfolio** (the home page): a card per title with its header image, review count, % recommended, Steam's rating, reviews per week for the last 12 weeks, the last 30 days against the 30 before, the most praised and most criticized themes, and when it last synced. Unreleased titles show "No reviews yet". "Most praised" is the theme with the most positive mentions after taking away its negative ones (and the reverse for "most criticized"), so a theme that splits players doesn't top either list.
 - **A title's page** has three tabs, with one row of filters above the first two: dates, vote, playtime, language, early access or after release, Steam Deck, and developer reply. The filters live in the page address, so a filtered view can be bookmarked or sent to someone.
   - **Overview**: headline numbers, reviews per month (recommended above the line, not recommended below), the executive summary, the overall impression split, and the theme table. The theme table sorts by share, sentiment or net, shows each theme's trend over the selected dates, and each theme opens its own page: definition, what counts and what doesn't, mentions per month by sentiment, and its reviews (all, or only positive, mixed or negative), with the quotes highlighted.
-  - **Reviews**: every review, searchable. Search matches parts of words in any language (Chinese and Japanese included); put a phrase in quotes to match it exactly. Sort by newest, oldest, most helpful or most playtime, or narrow to one overall impression.
+  - **Reviews**: every review, searchable. Search matches parts of words in any language (Chinese and Japanese included); put a phrase in quotes to match it exactly. Sort by newest, oldest, most helpful or most playtime, or narrow to one overall impression. Each review shows the language it is written in and, when that isn't English, a machine translation underneath (see [Languages and translations](#languages-and-translations)).
   - **Themes setup**: find themes, edit and approve the codebook, run analysis, and spot-check 20 random reviews (Phase 2).
 - **Compare**: pick 2 to 4 titles to see % recommended, Steam's rating, reviews per month and % recommended by quarter side by side. Each title keeps its color while it stays picked.
   - Each title's themes come from its own reviews, so the same topic can have a different name in each game. **Match similar themes** has the analysis model group the themes that are about the same thing (it reads the theme names and definitions, not the reviews). Like every model call it shows the cost first (about $0.02 for two titles) and runs only when confirmed. The result is saved and reused until one of the titles approves a new codebook. Matching needs at least two titles with analyzed reviews.
@@ -95,13 +95,22 @@ Open a title and go to its **Themes setup** tab (admins only for the buttons).
 2. **Review the codebook.** Rename, merge, split, add or delete themes with **Edit themes**. Saving creates a new version; versions never change once saved. **Approve** the version you want used.
 3. **Analyze reviews.** The tagging model (`MODEL_TAGGING`) reads every review that has text and no tag for its current version under the approved codebook, 20 reviews per request. For each review it returns the themes mentioned, sentiment per theme, a short quote per theme, the reviewer's **overall impression** of the game (positive, mixed, negative, or none) with its own quote, an "other" flag for points no theme covers, and an English gist for non-English reviews. General praise or criticism ("great game", "waste of money") goes into the overall impression, not into a theme, and is counted separately so theme numbers stay about specific topics. Then the analysis model re-tags a random 5% (at least 20 reviews) as a quality check, and writes an executive summary citing review IDs.
 
+### Languages and translations
+
+Steam labels each review with the reviewer's Steam language setting, which is often not the language they wrote in: an English review from someone whose Steam is set to Spanish arrives labeled Spanish. So every analysis run first has the translation model (`MODEL_TRANSLATION`) read each review that hasn't been checked, record the language it is actually written in, and translate the ones not in English.
+
+- Filters, charts, the analysis and exports all go by the language the review is written in. When the text and the Steam setting are the same language, Steam's regional variety is kept (Spanish from Spain or Latin America, Portuguese from Portugal or Brazil). The language label's tooltip shows the Steam setting when the two differ.
+- Translations appear under the review, labeled as machine-written. They are never used as quotes, and search looks at what the reviewer wrote.
+- A review is checked once, and again only if its author edits it. Text with no language to speak of ("10/10", emoji) keeps the Steam setting.
+- On a title's **Reviews** tab, admins can also run the check on its own (**Check languages and translate**), before any themes exist. Nightly analysis includes it.
+
 Every run starts as a **cost estimate** (input tokens counted by Anthropic's token counter, output estimated) and only runs after you confirm it. Actual tokens and cost are logged per run on the **Analysis quality** page. Runs with 100 or more reviews go through the Batches API at half price; smaller ones call the API directly.
 
 Rules the pipeline enforces in code:
 
 - **Quotes are verbatim.** Each quote must be found in the review's own text (exact match, or one that differs only in whitespace or letter case). The app stores the position and always shows the review's own text there. Quotes that fail are dropped and counted on the quality page.
 - **Unchanged reviews are never re-tagged.** A review is re-tagged only when Steam's `timestamp_updated` changes, when a new codebook version is approved, or when the app starts recording something new per review (the tag version, currently 2, changes in an update).
-- **No em dashes** in anything generated (theme text, gists, notes, summaries). Reviewers' own quotes are left as written.
+- **No em dashes** in anything generated (theme text, gists, translations, notes, summaries). Reviewers' own quotes are left as written.
 - If more than 10% of analyzed reviews raise points no theme covers, the codebook is flagged for review.
 - Reviews with almost no text ("good", "10/10", emoji) are stored as "no content" and counted, but not sent to the model.
 
@@ -131,7 +140,7 @@ Every export uses the filters set on the page it comes from, and is named `MWG_<
 
 - **Export** (top right of a title's page):
   - **PDF report**: cover, headline numbers, reviews per month, overall impression, executive summary, theme table with sentiment bars, the 3 most praised and 3 most criticized themes with up to 3 verbatim quotes each (each linked to the review on Steam), and a note on how the report was made (dates, filters, review counts, models, codebook version, quality check). US Letter, with page numbers.
-  - **Excel workbook**: About (filters, counts, models), Theme summary, Coded reviews (one row per review, a column per theme with its sentiment), and Monthly trends. Plain values only, no formulas, so it opens cleanly in Google Sheets.
+  - **Excel workbook**: About (filters, counts, models), Theme summary, Coded reviews (one row per review, a column per theme with its sentiment, the language the review is written in next to the reviewer's Steam language setting, and the English translation), and Monthly trends. Plain values only, no formulas, so it opens cleanly in Google Sheets.
   - **CSV of coded reviews**: the same rows as the workbook's Coded reviews sheet.
 - **Portfolio PDF** (on the Portfolio page): a summary page across all titles, then one page per title with reviews. Pick a date range next to the button.
 - **Copy as image** on every chart puts a PNG of the chart, with its title and legend, on the clipboard. Browsers that don't allow that save it as a file instead.
@@ -226,6 +235,7 @@ All settings go in `.env` (see [.env.example](.env.example)). Never commit `.env
 |---|---|---|
 | `ANTHROPIC_API_KEY` (or `MWG_ANTHROPIC_API_KEY`) | empty | Needed for analysis |
 | `MODEL_TAGGING`, `MODEL_ANALYSIS` | `claude-haiku-5-5`, `claude-sonnet-5-5` | Tagging model, and the model for themes, quality checks and summaries |
+| `MODEL_TRANSLATION` | `claude-haiku-5-5` | Checks which language each review is written in and translates the ones not in English |
 | `TAGGING_EFFORT`, `ANALYSIS_EFFORT` | `low`, `high` | How much each model reasons before answering |
 | `MODEL_PRICES` | built in | Override or add per-model prices (JSON) |
 | `DIRECT_MAX_REVIEWS` | `100` | Runs with at least this many reviews use the Batches API (half price) |

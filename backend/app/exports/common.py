@@ -43,6 +43,7 @@ LANGUAGE_NAMES = {
     "greek": "Greek",
     "bulgarian": "Bulgarian",
     "arabic": "Arabic",
+    "other": "Other language",
 }
 
 

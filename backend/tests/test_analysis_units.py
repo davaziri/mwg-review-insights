@@ -104,7 +104,7 @@ def test_qa_count():
 
 
 def _r(i, up, band, ea=False, lang="english"):
-    return SimpleNamespace(id=i, voted_up=up, playtime_band=band, written_during_early_access=ea, language=lang)
+    return SimpleNamespace(id=i, voted_up=up, playtime_band=band, written_during_early_access=ea, language=lang, effective_language=lang)
 
 
 def test_stratified_sample():

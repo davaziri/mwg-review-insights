@@ -49,7 +49,7 @@ def _excerpt(review: Review, mention: ThemeMention, key: str, gist: str | None) 
         "theme": key,
         "sentiment": mention.sentiment,
         "date": created,
-        "language": review.language,
+        "language": review.effective_language,
         "quote": (review.display_text or "")[mention.quote_start : mention.quote_end],
     }
     if gist:

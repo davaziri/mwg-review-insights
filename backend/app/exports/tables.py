@@ -90,6 +90,7 @@ def coded_reviews(session: Session, ctx: ExportContext) -> tuple[list[str], list
         "Steam link",
         "Date written",
         "Language",
+        "Steam language setting",
         "Recommended",
         "Playtime at review (hours)",
         "Early access",
@@ -103,6 +104,7 @@ def coded_reviews(session: Session, ctx: ExportContext) -> tuple[list[str], list
         "Point no theme covers",
         "English gist (machine-written, not a quote)",
         "Review text",
+        "English translation (machine-written)",
     ]
     if ctx.codebook:
         query = select(Review, ReviewTag).outerjoin(ReviewTag, current_tag_join(ctx.codebook.id))
@@ -136,6 +138,7 @@ def coded_reviews(session: Session, ctx: ExportContext) -> tuple[list[str], list
                 review.recommendation_id,
                 review_url(review),
                 _date(review.timestamp_created),
+                language_name(review.effective_language),
                 language_name(review.language),
                 yes_no(review.voted_up),
                 round(review.author_playtime_at_review / 60, 1) if review.author_playtime_at_review is not None else None,
@@ -150,6 +153,7 @@ def coded_reviews(session: Session, ctx: ExportContext) -> tuple[list[str], list
                 (tag.other_note or None) if tag and tag.other_flag else None,
                 tag.gist_en or None if tag else None,
                 review.display_text or "",
+                review.text_en,
             ]
         )
     return header, out

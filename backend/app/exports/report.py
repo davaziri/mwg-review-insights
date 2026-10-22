@@ -65,7 +65,7 @@ def theme_quotes(session: Session, ctx: ExportContext, theme_id: int, sentiment:
             ThemeMention.quote_status == "ok",
         )
     ).all()
-    rows.sort(key=lambda r: (r[0].language != "english", -(r[0].votes_up or 0), -(r[0].timestamp_created or 0)))
+    rows.sort(key=lambda r: (r[0].effective_language != "english", -(r[0].votes_up or 0), -(r[0].timestamp_created or 0)))
     out: list[Quote] = []
     for review, start, end, gist in rows:
         text = verified_quote(review.display_text, start, end)
@@ -77,9 +77,9 @@ def theme_quotes(session: Session, ctx: ExportContext, theme_id: int, sentiment:
                 url=review_url(review),
                 recommended=bool(review.voted_up),
                 date=datetime.fromtimestamp(review.timestamp_created or 0, UTC).date().isoformat(),
-                language=review.language or "",
+                language=review.effective_language or "",
                 playtime_hours=round(review.author_playtime_at_review / 60, 1) if review.author_playtime_at_review is not None else None,
-                gist=gist if review.language != "english" else None,
+                gist=gist if review.effective_language != "english" else None,
             )
         )
         if len(out) == limit:

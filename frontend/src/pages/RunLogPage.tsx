@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { AlertRow } from "../api/types";
 import { AdminOnly } from "../auth";
+import { RUN_KIND } from "../components/analysis/EstimateDialog";
 import { SyncRunsSection } from "../components/SyncRunsSection";
 import { Badge, Button } from "../components/ui";
 import { dateTime, money } from "../lib/format";
@@ -58,12 +59,14 @@ function AnalysesSection() {
                       {r.title_name}
                     </Link>
                   </td>
-                  <td className="px-3 py-2">{r.kind === "discovery" ? "Find themes" : "Analyze reviews"}</td>
+                  <td className="px-3 py-2">{RUN_KIND[r.kind]}</td>
                   <td className="px-3 py-2 text-ink-2">{r.trigger === "nightly" ? "Nightly" : (r.confirmed_by ?? r.requested_by ?? "")}</td>
                   <td className="px-3 py-2">
                     <Badge tone={RUN_TONE[r.status]}>{RUN_WORD[r.status]}</Badge>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{r.kind === "analysis" ? r.reviews_tagged || r.reviews_in_scope : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.kind === "analysis" ? r.reviews_tagged || r.reviews_in_scope : r.kind === "translation" ? (r.details?.translation?.checked ?? r.reviews_in_scope) : ""}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.confirmed_at ? money(r.actual_cost_usd) : `est. ${money(r.est_cost_usd)}`}</td>
                   <td className="max-w-xs px-3 py-2 text-xs text-muted">{r.error ?? r.warning ?? ""}</td>
                 </tr>

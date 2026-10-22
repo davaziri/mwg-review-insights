@@ -50,6 +50,23 @@ def test_nothing_new_means_no_run(session, settings, llm, analyzed):
     assert runs(session, trigger="nightly") == []
 
 
+def test_reviews_analyzed_before_the_language_check_get_it_overnight(session, session_factory, settings, llm, analyzed):
+    from sqlalchemy import update
+
+    from app.models import Review
+
+    session.execute(update(Review).values(language_checked_for=None, text_language=None, text_en=None))
+    session.commit()
+    report = nightly_analysis(session, settings, llm)
+    assert len(report) == 1 and "started, 0 reviews" in report[0]
+    (run,) = runs(session, trigger="nightly")
+    assert [s["step"] for s in run.estimate["steps"]] == ["translation"]  # nothing to tag, summary is recent
+    run_until_done(session_factory, settings, llm)
+    session.refresh(run)
+    assert run.status == "succeeded" and run.details["translation"]["checked"] == 63
+    assert nightly_analysis(session, settings, llm) == []  # and nothing left for the next night
+
+
 def test_new_reviews_are_tagged_without_qa_or_a_fresh_summary(session, session_factory, settings, llm, analyzed):
     full_qa = runs(session)[-1].details["qa"]
     add_new_reviews(session, analyzed)
@@ -58,13 +75,13 @@ def test_new_reviews_are_tagged_without_qa_or_a_fresh_summary(session, session_f
     (run,) = runs(session, trigger="nightly")
     assert (run.status, run.requested_by, run.reviews_in_scope) == ("queued", "nightly", 2)
     assert run.confirmed_by.startswith("nightly (under the $0.50 limit)")
-    assert [s["step"] for s in run.estimate["steps"]] == ["tagging"]  # no QA for 2 reviews, summary is recent
+    assert [s["step"] for s in run.estimate["steps"]] == ["translation", "tagging"]  # no QA for 2 reviews, summary is recent
     summaries = session.scalar(select(func.count()).select_from(Summary))
 
     run_until_done(session_factory, settings, llm)
     session.refresh(run)
     assert run.status == "succeeded" and run.reviews_tagged == 2
-    assert "qa" not in run.details and set(run.usage) == {"tagging"}
+    assert "qa" not in run.details and set(run.usage) == {"translation", "tagging"}
     assert session.scalar(select(func.count()).select_from(Summary)) == summaries
     # The quality page keeps showing the last real quality check.
     assert runs(session)[0].details["qa"] == full_qa
@@ -74,7 +91,7 @@ def test_summary_is_rewritten_once_it_is_old(session, session_factory, settings,
     add_new_reviews(session, analyzed)
     nightly_analysis(session, settings, llm, now=utcnow() + timedelta(days=8))
     (run,) = runs(session, trigger="nightly")
-    assert [s["step"] for s in run.estimate["steps"]] == ["tagging", "summary"]
+    assert [s["step"] for s in run.estimate["steps"]] == ["translation", "tagging", "summary"]
     run_until_done(session_factory, settings, llm)
     assert session.scalar(select(func.count()).select_from(Summary)) == 2
 
@@ -83,7 +100,7 @@ def test_enough_new_reviews_get_a_quality_check(session, settings, llm, analyzed
     add_new_reviews(session, analyzed, count=settings.qa_min_reviews)
     nightly_analysis(session, settings, llm)
     (run,) = runs(session, trigger="nightly")
-    assert [s["step"] for s in run.estimate["steps"]] == ["tagging", "qa"]
+    assert [s["step"] for s in run.estimate["steps"]] == ["translation", "tagging", "qa"]
 
 
 def test_over_the_limit_waits_for_an_admin(session, settings, llm, analyzed):

@@ -6,9 +6,8 @@ import { AdminOnly } from "../../auth";
 import type { AnalysisOverview, AnalysisRun } from "../../api/types";
 import { dateTime, money, timeAgo } from "../../lib/format";
 import { Badge, Button, Card } from "../ui";
-import { EstimateDialog, STEP_LABELS } from "./EstimateDialog";
+import { EstimateDialog, RUN_KIND as KIND, STEP_LABELS } from "./EstimateDialog";
 
-const KIND = { discovery: "Find themes", analysis: "Analyze reviews" } as const;
 const STATUS_TONE = {
   estimated: "slate",
   queued: "blue",
@@ -157,7 +156,7 @@ function ActiveRun({ run, onCancel, canceling }: { run: AnalysisRun; onCancel: (
           Sent as a batch {timeAgo(batch.submitted_at)} ({batch.requests} requests). Batches usually finish within an hour; this page updates on its own.
         </p>
       )}
-      {run.kind === "analysis" && (
+      {run.kind === "analysis" && run.step !== "translation" && (
         <p className="mt-1 text-xs">
           {run.reviews_tagged.toLocaleString()} of {run.reviews_in_scope.toLocaleString()} reviews tagged. Spent so far{" "}
           {money(run.actual_cost_usd)} of an estimated {money(run.est_cost_usd)}.

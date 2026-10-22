@@ -11,7 +11,7 @@ def _stratum(review: Review) -> tuple:
     return (
         review.playtime_band or "unknown",
         bool(review.written_during_early_access),
-        (review.language or "") == "english",
+        (review.effective_language or "") == "english",
     )
 
 

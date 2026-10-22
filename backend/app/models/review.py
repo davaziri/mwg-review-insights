@@ -13,7 +13,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -71,9 +73,29 @@ class Review(Base):
     content_status: Mapped[str | None] = mapped_column(String(20))  # ok | no_content
     playtime_band: Mapped[str | None] = mapped_column(String(20))
 
+    # Set by the language check (app.analysis.translation). `language` above is the reviewer's
+    # Steam language setting, which is often not the language they wrote in. text_language is the
+    # language of the text itself, text_en a machine translation when that isn't English, and
+    # language_checked_for the timestamp_updated that was checked, so an edited review is checked
+    # again.
+    text_language: Mapped[str | None] = mapped_column(String(40))
+    text_en: Mapped[str | None] = mapped_column(Text)
+    language_checked_for: Mapped[int | None] = mapped_column(BigInteger)
+    translation_model: Mapped[str | None] = mapped_column(String(64))
+
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    @hybrid_property
+    def effective_language(self) -> str | None:
+        """The language to show, filter and sample by: the checked one, else Steam's setting."""
+        return self.text_language or self.language
+
+    @effective_language.inplace.expression
+    @classmethod
+    def _effective_language_expression(cls):
+        return func.coalesce(cls.text_language, cls.language)
 
 
 class ReviewSnapshot(Base):

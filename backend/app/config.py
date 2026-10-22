@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     anthropic_api_base: str = "https://api.anthropic.com"
     model_tagging: str = "claude-haiku-5-5"
     model_analysis: str = "claude-sonnet-5-5"
+    # Checks which language each review is written in and translates the non-English ones.
+    model_translation: str = "claude-haiku-5-5"
     tagging_effort: str = "low"
     analysis_effort: str = "high"
     # Extra or overriding prices, USD per million tokens, e.g.

@@ -66,7 +66,7 @@ def review_brief(review: Review, max_chars: int = 400) -> dict:
         "recommendation_id": review.recommendation_id,
         "excerpt": text if len(text) <= max_chars else text[:max_chars].rstrip() + "...",
         "voted_up": review.voted_up,
-        "language": review.language,
+        "language": review.effective_language,
         "date": date_str(review.timestamp_created),
         "url": review_url(review),
     }
@@ -98,7 +98,11 @@ def serialize_reviews(
                 "text": r.display_text or "",
                 "content_status": r.content_status,
                 "voted_up": r.voted_up,
-                "language": r.language,
+                # The language the text is written in once checked, else the Steam setting.
+                "language": r.effective_language,
+                "steam_language": r.language,
+                "language_checked": r.language_checked_for is not None and r.language_checked_for == (r.timestamp_updated or 0),
+                "text_en": r.text_en,
                 "date": date_str(r.timestamp_created),
                 "playtime_at_review_hours": round(r.author_playtime_at_review / 60, 1)
                 if r.author_playtime_at_review is not None

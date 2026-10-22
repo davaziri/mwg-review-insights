@@ -107,10 +107,11 @@ def test_full_analysis_tags_checks_and_summarizes(session, session_factory, sett
 
     run = estimate_analysis(session, settings, llm, seeded, APP)
     names = [s["step"] for s in run.estimate["steps"]]
-    assert names == ["tagging", "qa", "summary"]
+    assert names == ["translation", "tagging", "qa", "summary"]
     assert run.reviews_in_scope == 54 and run.mode == "direct"  # 63 reviews, 9 with no content
-    assert run.estimate["steps"][0]["requests"] == 3
-    assert run.estimate["steps"][1]["reviews"] == 20  # 5% would be 3; the minimum is 20
+    assert run.estimate["steps"][0]["reviews"] == 63  # every review with text gets a language check
+    assert run.estimate["steps"][1]["requests"] == 3
+    assert run.estimate["steps"][2]["reviews"] == 20  # 5% would be 3; the minimum is 20
 
     confirm(session, run)
     run_until_done(session_factory, settings, llm)
@@ -118,7 +119,8 @@ def test_full_analysis_tags_checks_and_summarizes(session, session_factory, sett
 
     assert run.status == "succeeded", run.error
     assert (run.reviews_tagged, run.reviews_failed) == (54, 0)
-    assert set(run.usage) == {"tagging", "qa", "summary"}
+    assert set(run.usage) == {"translation", "tagging", "qa", "summary"}
+    assert run.details["translation"] == {"planned": 63, "checked": 63, "translated": 9}
     assert run.actual_cost_usd == pytest.approx(sum(s["cost_usd"] for s in run.usage.values()), abs=1e-6)
 
     # Quotes: the paraphrased one was dropped, every kept quote is the review's own text.
@@ -185,8 +187,7 @@ def test_unchanged_reviews_are_never_retagged_but_edits_are(session, session_fac
 
     again = estimate_analysis(session, settings, llm, seeded, APP)
     assert again.reviews_in_scope == 0
-    assert [s["step"] for s in again.estimate["steps"]] == ["tagging", "summary"]
-    assert again.estimate["steps"][0]["cost_usd"] == 0
+    assert [s["step"] for s in again.estimate["steps"]] == ["summary"]  # nothing to check or tag
 
     # An edited review (new timestamp_updated) is the only one queued for re-tagging.
     edited = make_review(10002, 1_760_000_000 + 2 * 86_400, updated=1_790_000_000, text="Patched: no more crashes. Combat is great now.")
@@ -255,9 +256,14 @@ def test_batch_mode_submits_then_collects(session, session_factory, settings, ll
     assert run.mode == "batch" and run.estimate["steps"][0]["batch"] is True
     confirm(session, run)
 
-    process_analysis(session_factory, settings, lambda: llm)  # submits the tagging batch
+    process_analysis(session_factory, settings, lambda: llm)  # submits the language check batch
     session.refresh(run)
-    assert (run.status, run.step) == ("running", "tagging")
+    assert (run.status, run.step) == ("running", "translation")
+    assert run.batches["translation"]["requests"] == 3 and not run.batches["translation"]["ingested"]
+    process_analysis(session_factory, settings, lambda: llm)  # not finished yet
+    process_analysis(session_factory, settings, lambda: llm)  # collects it, submits the tagging batch
+    session.refresh(run)
+    assert (run.status, run.step) == ("running", "tagging") and run.batches["translation"]["ingested"]
     assert run.batches["tagging"]["requests"] == 3 and not run.batches["tagging"]["ingested"]
     assert session.scalar(select(func.count()).select_from(ReviewTag)) == 0
 
