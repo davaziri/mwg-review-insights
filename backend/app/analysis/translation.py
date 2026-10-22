@@ -10,6 +10,7 @@ only if its author edits it. Translations are machine-written and always labeled
 are never used as quotes.
 """
 
+import re
 from collections.abc import Sequence
 from html import escape
 
@@ -139,9 +140,19 @@ def estimated_output_tokens(review: Review) -> int:
     return 25 + round((cjk + (len(text) - cjk) / 4) * 1.2)
 
 
+def _words(text: str) -> str:
+    return re.sub(r"\W+", " ", text.lower()).strip()
+
+
+def is_copy(original: str, english: str) -> bool:
+    """True when the "translation" is just the original text again, which the model sometimes
+    returns for short or informal reviews."""
+    return bool(_words(original)) and _words(original) == _words(english)
+
+
 def ingest(session: Session, reviews: Sequence[Review], result: LLMResult, model: str) -> list[Review]:
     """Store the language and translation for each review answered. Returns the reviews still
-    unchecked: left out of the answer, or not in English but with no translation."""
+    unchecked: left out of the answer, or not in English but with no real translation."""
     entries = {}
     if result.ok:
         entries = {str(e.get("review_id")): e for e in result.data.get("reviews", []) if isinstance(e, dict)}
@@ -154,7 +165,7 @@ def ingest(session: Session, reviews: Sequence[Review], result: LLMResult, model
             continue
         language = resolve_language(detected, review.language)
         english = strip_em_dashes((entry.get("english") or "").strip())
-        if language not in (None, "english") and not english:
+        if language not in (None, "english") and (not english or is_copy(review.display_text or "", english)):
             failed.append(review)
             continue
         review.text_language = language

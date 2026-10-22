@@ -121,11 +121,14 @@ def test_a_review_left_untranslated_is_tried_again_alone_then_left_for_later(ses
     add(session, REVIEWS)
     fake_llm.untranslated_ids = {"2"}  # the model keeps leaving out this translation
     fake_llm.omit_ids = {"4"}  # left out of its group, fine on its own
+    fake_llm.copied_ids = {"3"}  # the original text sent back as its translation, fine on its own
     run = check_languages(session, session_factory, settings, fake_llm)
 
     assert run.status == "succeeded" and run.reviews_failed == 1
     assert run.details["translation"] == {"planned": 5, "checked": 4, "translated": 2}
-    assert len(run.details["retried_translation_ids"]) == 2
+    assert len(run.details["retried_translation_ids"]) == 3
+    copied = session.scalar(select(Review).where(Review.recommendation_id == "3"))
+    assert copied.text_en.startswith("[English] ")  # the copy was refused and the retry stored a real one
     assert [r.recommendation_id for r in unchecked_reviews(session, 1, APP)] == ["2"]  # next run tries again
 
 

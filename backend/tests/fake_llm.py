@@ -43,6 +43,7 @@ class FakeLLM:
         self.refuse_ids: set[str] = set()  # any request containing these is declined
         self.other_ids: set[str] = set()  # flagged as raising an uncovered point
         self.untranslated_ids: set[str] = set()  # language check returns no translation
+        self.copied_ids: set[str] = set()  # "translated" as the original text in groups (fine on their own)
         self.canceled: list[str] = []
 
     # LLMClient
@@ -159,6 +160,8 @@ class FakeLLM:
             else:
                 language = "english"
             english = "" if language in ("english", "none") or rid in self.untranslated_ids else f"[English] {text} — machine"
+            if english and rid in self.copied_ids and not single:
+                english = text
             out.append({"review_id": rid, "language": language, "english": english})
         return {"reviews": out}
 

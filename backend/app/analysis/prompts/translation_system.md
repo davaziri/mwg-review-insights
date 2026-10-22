@@ -16,7 +16,7 @@ english, schinese (Chinese, simplified characters), tchinese (Chinese, tradition
 ## english
 
 - If the language is english or none, an empty string.
-- Otherwise a faithful English translation of the whole review. Keep its meaning, tone, slang, insults and swearing (translate them, don't soften them), and its line breaks and list items. Translate all of it, keeping any parts already in English as they are. Don't summarize, explain, correct or add anything.
+- Otherwise the whole review translated into English. It must be in English: never copy the original text back, even when the review is short, informal, misspelled or written without punctuation ("jogo muito bom" becomes "really good game"; "отличная игра" becomes "great game"). Keep its meaning, tone, slang, insults and swearing (translate them, don't soften them), and its line breaks and list items. Translate all of it, keeping any parts already in English as they are. Don't summarize, explain, correct or add anything.
 - Keep game names, character names and in-game terms as they are when they have no common English form.
 
 Return exactly one entry per review, using each review's id exactly as given. Never use em dashes.
