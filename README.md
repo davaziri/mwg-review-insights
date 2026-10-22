@@ -149,12 +149,12 @@ People sign in with a Google account on the company's domain. There are two role
 
 Everyone starts as a viewer, except the addresses in `ADMIN_EMAILS`. If `ADMIN_EMAILS` is empty, the first person to sign in becomes an admin. Admins change roles, and can turn someone's access off, on the **People** page.
 
-To set up Google sign-in (once, by someone with access to the company's Google Workspace):
+To set up Google sign-in (once, by anyone with a company Google account who is allowed to create Google Cloud projects; it's free and needs no billing):
 
-1. Go to console.cloud.google.com, create a project (for example "Review Insights"), and open **APIs & Services**.
-2. **OAuth consent screen**: choose **Internal** (only people in your Workspace can use it), fill in the app name and a support email.
-3. **Credentials > Create credentials > OAuth client ID**: type **Web application**. Under **Authorized redirect URIs** add `https://<your address>/api/auth/callback` (for example `https://insights.midwestgames.com/api/auth/callback`).
-4. Copy the client ID and secret into `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, set `ALLOWED_DOMAINS` (for example `midwestgames.com`), `ADMIN_EMAILS` and `PUBLIC_URL`, and restart the app.
+1. Go to console.cloud.google.com and create a project (for example "Review Insights").
+2. Open **Google Auth Platform** (in older screens, **APIs & Services > OAuth consent screen**) and click **Get started**: fill in the app name and a support email (Google offers the email of whoever is signed in, or a Google Group they manage), and choose **Internal** as the audience, so only people in your Workspace can use it.
+3. **Clients > Create client** (or **Credentials > Create credentials > OAuth client ID**): type **Web application**. Under **Authorized redirect URIs** add `https://<your address>/api/auth/callback` (for example `https://insights.midwestgames.com/api/auth/callback`). Copy the client ID and secret straight away, or download the JSON: Google may show the secret only once.
+4. Put the client ID and secret into `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, set `ALLOWED_DOMAINS` (for example `midwestgames.com`), `ADMIN_EMAILS` and `PUBLIC_URL`, and restart the app (on a server, `cd /opt/mwg && sudo docker compose up -d --force-recreate`). The sign-in page shows which of these settings are still missing.
 
 Only accounts whose email is on an allowed domain, and which are company accounts (not personal Gmail accounts using a company address), can sign in. Sessions last 14 days (`SESSION_DAYS`). The session cookie is signed with `SESSION_SECRET`; if that's empty, a random one is created once and kept in the data folder.
 
@@ -184,8 +184,12 @@ Prices per model are built in and can be changed with `MODEL_PRICES` if Anthropi
 
 This runs the app on one small Linux server with HTTPS. Any provider works (DigitalOcean, Linode, AWS Lightsail, Google Cloud, Azure).
 
-1. **Create the server**: Ubuntu 24.04 LTS, 1 to 2 CPUs, 2 GB of memory, 25 GB of disk. Allow incoming ports 22 (SSH), 80 and 443 only.
-2. **Point a name at it**: create a DNS record such as `insights.midwestgames.com` pointing to the server's IP address.
+1. **Create the server**: Ubuntu 24.04 LTS, 1 to 2 CPUs, 2 GB of memory, 25 GB of disk. Allow incoming ports 22 (SSH), 80 and 443 only. Give it a fixed (static) public IP address.
+
+   On **AWS Lightsail** (how this app was first deployed): Create instance > Linux/Unix > **Operating system (OS) only** > Ubuntu 24.04 LTS (not one of the "Apps + OS" blueprints) > **General purpose**, network type **Dual-stack** (not IPv6-only, which may not reach GitHub or Steam) > the 2 GB plan ($12 a month in 2026). Then, on the instance's **Networking** tab, attach a static IP and add a firewall rule for **HTTPS** (SSH and HTTP are open already). **Connect using SSH** on the Connect tab opens a terminal in the browser.
+2. **Point a name at it**: whoever manages the company's domain adds an **A record**, for example name `insights` pointing to the server's static IP. Use the public IP from the provider's console, not the private one in the server's prompt (`ip-172-...`). If the domain is on Cloudflare, the record must be "DNS only", not proxied. On the server, `getent hosts insights.midwestgames.com` prints the IP once the record works; that can take from minutes to a few hours.
+
+   Tip for browser terminals: if pasted commands start with `^[[200~` and fail with "command not found", type `bind 'set enable-bracketed-paste off'` by hand (once per terminal window), then paste one line at a time.
 3. **Install Docker** (on the server):
    ```bash
    curl -fsSL https://get.docker.com | sh
@@ -196,22 +200,22 @@ This runs the app on one small Linux server with HTTPS. Any provider works (Digi
    sudo chown -R $USER /opt/mwg && cd /opt/mwg
    cp .env.example .env && chmod 600 .env && nano .env
    ```
-   Set at least `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_DOMAINS`, `ADMIN_EMAILS` and `PUBLIC_URL=https://insights.midwestgames.com`. Leave `AUTH_MODE` unset. Set up Google sign-in as described above, with the redirect address on this name.
-5. **Start it**: `sudo docker compose up -d --build` (the first build takes several minutes). The database is created and migrated on start. The app listens on port 8000 on the server only.
-6. **Add HTTPS** with Caddy, a free web server that gets and renews certificates by itself:
+   Set at least `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_DOMAINS`, `ADMIN_EMAILS` and `PUBLIC_URL=https://insights.midwestgames.com`. Leave `AUTH_MODE` unset. Set up Google sign-in as described above, with the redirect address on this name; the Google settings can be added later. In `nano`, Ctrl+O then Enter saves and Ctrl+X exits. The app reads `.env` only when it starts, so after any later change run `cd /opt/mwg && sudo docker compose up -d --force-recreate`.
+5. **Start it**: `sudo docker compose up -d --build` from `/opt/mwg` (the first build takes several minutes). The database is created and migrated on start. The app listens on port 8000 on the server only. `sudo docker compose ps` should show `app` as healthy and `worker` as running.
+6. **Add HTTPS** with Caddy, a free web server that gets and renews certificates by itself. Do this once the name from step 2 works, using your own name in the second command:
    ```bash
    sudo apt update && sudo apt install -y caddy
-   echo 'insights.midwestgames.com {
-       reverse_proxy localhost:8000
-   }' | sudo tee /etc/caddy/Caddyfile
+   printf 'insights.midwestgames.com {\n\treverse_proxy localhost:8000\n}\n' | sudo tee /etc/caddy/Caddyfile
    sudo systemctl reload caddy
    ```
-   Open https://insights.midwestgames.com and sign in.
-7. **Back up the database** every night (it's one file). For example, run `sudo apt install -y sqlite3 && mkdir -p /opt/mwg/backups`, then add this line in `sudo crontab -e`:
+   Open https://insights.midwestgames.com and sign in. If it doesn't load after a couple of minutes, `sudo journalctl -u caddy --no-pager | tail -20` shows why. If the server says "System restart required", `sudo reboot` is safe: the app and Caddy start again on their own.
+7. **Back up the database** every night (it's one file):
+   ```bash
+   sudo apt install -y sqlite3
+   mkdir -p /opt/mwg/backups
+   (sudo crontab -l 2>/dev/null; echo '30 4 * * * sqlite3 /opt/mwg/data/mwg.db ".backup /opt/mwg/backups/mwg-$(date +\%u).db"') | sudo crontab -
    ```
-   30 4 * * * sqlite3 /opt/mwg/data/mwg.db ".backup /opt/mwg/backups/mwg-$(date +\%u).db"
-   ```
-   That keeps a week of daily copies. Copy them off the server now and then (or use your provider's disk snapshots).
+   That keeps a week of daily copies (`sudo crontab -l` shows the schedule). Copy them off the server now and then (or use your provider's disk snapshots).
 8. **Update** to a new version: `cd /opt/mwg && git pull && sudo docker compose up -d --build`. Migrations run on start and keep all data.
 
 ## Settings
